@@ -1,0 +1,40 @@
+{
+  "name": "twitchdropsminer-cli",
+  "version": "0.1.0",
+  "description": "Headless CLI rewrite of TwitchDropsMiner for mining Twitch drops on servers.",
+  "bin": {
+    "tdm": "dist/cli/index.js"
+  },
+  "main": "dist/cli/index.js",
+  "files": [
+    "dist",
+    "docs/ops",
+    "resources/systemd"
+  ],
+  "type": "module",
+  "scripts": {
+    "build": "npx tsc",
+    "dev": "ts-node src/cli/index.ts",
+    "lint": "echo \"no linter configured\"",
+    "test": "npm run build && node --test dist/tests/index.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@commander-js/extra-typings": "^12.1.0",
+    "pino": "^9.0.0",
+    "tough-cookie": "^5.0.0",
+    "undici": "^6.0.0",
+    "ws": "^8.17.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.18.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.0"
+  }
+}
