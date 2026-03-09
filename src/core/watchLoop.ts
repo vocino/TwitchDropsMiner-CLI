@@ -1,0 +1,30 @@
+import { WATCH_INTERVAL_MS } from "./constants.js";
+
+export class WatchLoop {
+  private timer: NodeJS.Timeout | null = null;
+  private running = false;
+
+  start(onTick: () => Promise<void> | void): void {
+    if (this.running) {
+      return;
+    }
+    this.running = true;
+    const tick = async () => {
+      if (!this.running) {
+        return;
+      }
+      await onTick();
+      this.timer = setTimeout(tick, WATCH_INTERVAL_MS);
+    };
+    void tick();
+  }
+
+  stop(): void {
+    this.running = false;
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
+  }
+}
+
