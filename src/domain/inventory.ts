@@ -96,6 +96,10 @@ export class TimedDrop {
     return this.claimed;
   }
 
+  get dropInstanceId(): string | null {
+    return this.claimId;
+  }
+
   get currentMinutes(): number {
     return this.realCurrentMinutes + this.extraCurrentMinutes;
   }

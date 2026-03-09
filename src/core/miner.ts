@@ -9,8 +9,10 @@ import { fetchChannelsForWantedGames } from "./channelService.js";
 import { sendChannelWatch } from "../integrations/twitchSpade.js";
 import { saveSessionState } from "../state/sessionState.js";
 import { logger } from "./runtime.js";
-import { buildInventoryFromGqlResponses, DropsCampaign } from "../domain/inventory.js";
+import { buildInventoryFromGqlResponses, DropsCampaign, TimedDrop } from "../domain/inventory.js";
 import { loadConfig } from "../config/store.js";
+import { TwitchPubSub } from "../integrations/twitchPubSub.js";
+import { WS_TOPICS_LIMIT } from "./constants.js";
 
 export class Miner {
   private state = new StateMachine();
@@ -24,6 +26,7 @@ export class Miner {
   private watchingChannel: Channel | null = null;
   private userId: string | null = null;
   private readonly spadeUrlCache = new Map<string, string>();
+  private pubsub: TwitchPubSub | null = null;
 
   async run(): Promise<void> {
     if (this.running) {
@@ -46,7 +49,16 @@ export class Miner {
     this.state.setState("INVENTORY_FETCH");
     await this.tickState(token);
 
+    this.pubsub = new TwitchPubSub();
+    await this.pubsub.start();
+    this.setupPubSubHandlers(token);
+    this.subscribePubSub(token);
+
     this.watchLoop.start(async () => {
+      if (this.state.state !== "IDLE") {
+        await this.tickState(token);
+        return;
+      }
       if (!this.watchingChannel || !this.userId) {
         return;
       }
@@ -84,6 +96,10 @@ export class Miner {
     this.running = false;
     this.watchLoop.stop();
     this.maintenance.stop();
+    if (this.pubsub) {
+      await this.pubsub.stop();
+      this.pubsub = null;
+    }
     this.state.setState("EXIT");
     saveSessionState({
       state: "EXIT",
@@ -91,6 +107,74 @@ export class Miner {
       watchedChannelId: this.watchingChannel?.id,
       watchedChannelName: this.watchingChannel?.login
     });
+  }
+
+  private findDropByInstanceId(instanceId: string): TimedDrop | null {
+    for (const campaign of this.campaigns) {
+      for (const drop of campaign.drops) {
+        if (drop.dropInstanceId === instanceId) return drop;
+      }
+    }
+    return null;
+  }
+
+  private setupPubSubHandlers(token: string): void {
+    if (!this.pubsub || !this.userId) return;
+    const userDropsTopic = `user-drop-events.${this.userId}`;
+    const notificationsTopic = `onsite-notifications.${this.userId}`;
+
+    this.pubsub.registerTopic(userDropsTopic, (msg: Record<string, unknown>) => {
+      const type = msg.type as string | undefined;
+      if (type === "drop-progress") {
+        const data = msg.data as Record<string, unknown> | undefined;
+        const instanceId = data?.drop_instance_id ?? data?.dropInstanceID;
+        const minutes = Number(data?.current_progress_minutes ?? data?.currentMinutesWatched ?? 0);
+        if (instanceId && Number.isFinite(minutes)) {
+          const drop = this.findDropByInstanceId(String(instanceId));
+          if (drop) {
+            drop.updateMinutes(minutes);
+            logger.debug({ instanceId, minutes }, "Drop progress from PubSub");
+          }
+        }
+      } else if (type === "drop-claim" || type === "drop_claim") {
+        const data = msg.data as Record<string, unknown> | undefined;
+        const instanceId = data?.drop_instance_id ?? data?.dropInstanceID;
+        if (instanceId) {
+          const drop = this.findDropByInstanceId(String(instanceId));
+          if (drop) {
+            drop.markClaimed();
+            logger.info({ instanceId }, "Drop claimed from PubSub");
+          }
+        }
+        this.state.setState("CHANNELS_CLEANUP");
+      }
+    });
+
+    this.pubsub.registerTopic(notificationsTopic, () => {
+      logger.debug("Onsite notification received, requesting inventory refresh");
+      this.state.setState("INVENTORY_FETCH");
+    });
+  }
+
+  private subscribePubSub(token: string): void {
+    if (!this.pubsub || !this.userId) return;
+    const userTopics = [
+      `user-drop-events.${this.userId}`,
+      `onsite-notifications.${this.userId}`
+    ];
+    const channelTopics = this.channels
+      .slice(0, Math.max(0, WS_TOPICS_LIMIT - userTopics.length))
+      .map((ch) => `video-playback-by-id.${ch.id}`);
+    for (const topic of channelTopics) {
+      this.pubsub.registerTopic(topic, () => {
+        logger.debug("Stream state update, requesting channels cleanup");
+        this.state.setState("CHANNELS_CLEANUP");
+      });
+    }
+    this.pubsub.listen(userTopics, token);
+    if (channelTopics.length > 0) {
+      this.pubsub.listen(channelTopics, token);
+    }
   }
 
   private async tickState(token: string): Promise<void> {
