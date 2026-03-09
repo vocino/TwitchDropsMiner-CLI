@@ -21,10 +21,12 @@ export class Miner {
   private running = false;
   private config: ReturnType<typeof loadConfig> | null = null;
   private campaigns: DropsCampaign[] = [];
+  private timeTriggers: Date[] = [];
   private wantedGames: string[] = [];
   private channels: Channel[] = [];
   private watchingChannel: Channel | null = null;
   private userId: string | null = null;
+  private lastInventoryFetchHour: number = 0;
   private readonly spadeUrlCache = new Map<string, string>();
   private pubsub: TwitchPubSub | null = null;
 
@@ -74,14 +76,27 @@ export class Miner {
         state: this.state.state,
         watchedChannelId: this.watchingChannel.id,
         watchedChannelName: this.watchingChannel.login,
+        activeDropId: this.getActiveDropText() ?? undefined,
         updatedAt: new Date().toISOString()
       });
     });
 
-    this.maintenance.start(60 * 60 * 1000, async () => {
-      logger.info("Maintenance trigger: inventory refresh");
-      this.state.setState("INVENTORY_FETCH");
-      await this.tickState(token);
+    this.maintenance.start(60 * 1000, async () => {
+      const now = Date.now();
+      const currentHour = Math.floor(now / (60 * 60 * 1000));
+      if (currentHour > this.lastInventoryFetchHour) {
+        logger.info("Maintenance: hourly inventory refresh");
+        this.lastInventoryFetchHour = currentHour;
+        this.state.setState("INVENTORY_FETCH");
+      }
+      const pastTriggers = this.timeTriggers.filter((d) => {
+        const t = d.getTime();
+        return t > now - 60 * 1000 && t <= now;
+      });
+      if (pastTriggers.length > 0) {
+        logger.info("Maintenance: campaign time trigger");
+        this.state.setState("CHANNELS_CLEANUP");
+      }
     });
 
     process.on("SIGINT", () => {
@@ -103,10 +118,36 @@ export class Miner {
     this.state.setState("EXIT");
     saveSessionState({
       state: "EXIT",
+      activeDropId: this.getActiveDropText() ?? undefined,
       updatedAt: new Date().toISOString(),
       watchedChannelId: this.watchingChannel?.id,
       watchedChannelName: this.watchingChannel?.login
     });
+  }
+
+  private async claimEligibleDrops(token: string): Promise<void> {
+    for (const campaign of this.campaigns) {
+      for (const drop of campaign.drops) {
+        if (!drop.canClaim || !drop.dropInstanceId) continue;
+        try {
+          await gqlRequest(GQL_OPERATIONS.ClaimDrop, token, {
+            input: { dropInstanceID: drop.dropInstanceId }
+          });
+          drop.markClaimed();
+          logger.info({ dropId: drop.id, instanceId: drop.dropInstanceId }, "Claimed drop");
+        } catch (err) {
+          logger.warn({ err, dropId: drop.id }, "Claim drop failed");
+        }
+      }
+    }
+  }
+
+  private getActiveDropText(): string | null {
+    for (const campaign of this.campaigns) {
+      const first = campaign.firstDrop;
+      if (first) return `${campaign.gameName}: ${first.name}`;
+    }
+    return null;
   }
 
   private findDropByInstanceId(instanceId: string): TimedDrop | null {
@@ -184,9 +225,11 @@ export class Miner {
 
     if (this.state.state === "INVENTORY_FETCH") {
       await this.fetchInventory(token);
+      this.lastInventoryFetchHour = Math.floor(Date.now() / (60 * 60 * 1000));
       this.state.setState("GAMES_UPDATE");
     }
     if (this.state.state === "GAMES_UPDATE") {
+      await this.claimEligibleDrops(token);
       this.updateWantedGames();
       this.state.setState("CHANNELS_CLEANUP");
     }
@@ -220,6 +263,7 @@ export class Miner {
       { enableBadgesEmotes: cfg.enableBadgesEmotes }
     );
     this.campaigns = built.campaigns;
+    this.timeTriggers = built.timeTriggers;
     logger.debug(
       {
         campaigns: this.campaigns.map((c) => ({

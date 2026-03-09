@@ -6,9 +6,17 @@ export const statusCommand = new Command("status")
   .option("--json", "Output status as JSON")
   .action(async (opts) => {
     const session = loadSessionState();
+    const rawState = session?.state ?? "UNKNOWN";
+    const highLevel =
+      rawState === "IDLE" && session?.watchedChannelName
+        ? "WATCHING"
+        : rawState !== "IDLE" && rawState !== "EXIT"
+          ? "MAINTENANCE"
+          : rawState;
     const status = {
-      running: session?.state !== "EXIT",
-      state: session?.state ?? "UNKNOWN",
+      running: rawState !== "EXIT",
+      state: highLevel,
+      rawState,
       watchedChannel: session?.watchedChannelName ?? null,
       activeDrop: session?.activeDropId ?? null
     };

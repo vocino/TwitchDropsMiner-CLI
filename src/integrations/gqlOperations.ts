@@ -24,6 +24,11 @@ export const GQL_OPERATIONS: Record<string, GqlOperation> = {
     operationName: "DirectoryPage_Game",
     sha256Hash: "76cb069d835b8a02914c08dc42c421d0dafda8af5b113a3f19141824b901402f",
     variables: { limit: 30, slug: "" }
+  },
+  ClaimDrop: {
+    operationName: "DropsPage_ClaimDropRewards",
+    sha256Hash: "a455deea71bdc9015b78eb49f4acfbce8baa7ccbedd28e549bb025bd0f751930",
+    variables: { input: { dropInstanceID: "" } }
   }
 };
 
