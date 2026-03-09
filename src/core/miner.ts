@@ -7,12 +7,16 @@ import { gqlRequest } from "../integrations/gqlClient.js";
 import { Channel, canWatchChannel, sortChannelCandidates } from "../domain/channel.js";
 import { saveSessionState } from "../state/sessionState.js";
 import { logger } from "./runtime.js";
+import { buildInventoryFromGqlResponses, DropsCampaign } from "../domain/inventory.js";
+import { loadConfig } from "../config/store.js";
 
 export class Miner {
   private state = new StateMachine();
   private watchLoop = new WatchLoop();
   private maintenance = new MaintenanceScheduler();
   private running = false;
+  private config: ReturnType<typeof loadConfig> | null = null;
+  private campaigns: DropsCampaign[] = [];
   private wantedGames: string[] = [];
   private channels: Channel[] = [];
   private watchingChannel: Channel | null = null;
@@ -22,6 +26,8 @@ export class Miner {
       return;
     }
     this.running = true;
+
+    this.config = loadConfig();
 
     const session = new SessionManager();
     const token = session.getAccessToken();
@@ -111,12 +117,64 @@ export class Miner {
       GQL_OPERATIONS.Campaigns,
       token
     );
-    logger.debug({ inventoryResponse, campaignsResponse }, "Inventory fetched");
+    const cfg = this.config ?? loadConfig();
+    const built = buildInventoryFromGqlResponses(
+      (inventoryResponse as unknown) as Record<string, unknown>,
+      (campaignsResponse as unknown) as Record<string, unknown>,
+      { enableBadgesEmotes: cfg.enableBadgesEmotes }
+    );
+    this.campaigns = built.campaigns;
+    logger.debug(
+      {
+        campaigns: this.campaigns.map((c) => ({
+          id: c.id,
+          game: c.gameName,
+          eligible: c.eligible,
+          active: c.active,
+          upcoming: c.upcoming
+        }))
+      },
+      "Inventory fetched and campaigns built"
+    );
   }
 
   private updateWantedGames(): void {
-    // TODO: use full settings priority/exclude logic when config store is fully wired.
-    this.wantedGames = this.wantedGames.length ? this.wantedGames : ["Just Chatting"];
+    const cfg = this.config ?? loadConfig();
+    const exclude = new Set(cfg.exclude);
+    const priority = cfg.priority;
+    const priorityMode = cfg.priorityMode;
+    const priorityOnly = priorityMode === "priority_only";
+
+    const nextHour = new Date(Date.now() + 60 * 60 * 1000);
+    let campaigns = this.campaigns.filter((c) => c.canEarnWithin(nextHour));
+
+    if (!priorityOnly) {
+      if (priorityMode === "ending_soonest") {
+        campaigns = campaigns.sort((a, b) => a.endsAt.getTime() - b.endsAt.getTime());
+      } else if (priorityMode === "low_avbl_first") {
+        campaigns = campaigns.sort((a, b) => a.availability - b.availability);
+      }
+    }
+
+    campaigns = campaigns.sort((a, b) => {
+      const ia = priority.indexOf(a.gameName);
+      const ib = priority.indexOf(b.gameName);
+      const pa = ia === -1 ? Number.MAX_SAFE_INTEGER : ia;
+      const pb = ib === -1 ? Number.MAX_SAFE_INTEGER : ib;
+      return pa - pb;
+    });
+
+    const wanted: string[] = [];
+    for (const campaign of campaigns) {
+      const game = campaign.gameName;
+      if (wanted.includes(game)) continue;
+      if (exclude.has(game)) continue;
+      if (priorityOnly && !priority.includes(game)) continue;
+      wanted.push(game);
+    }
+
+    this.wantedGames = wanted;
+    logger.info({ wantedGames: this.wantedGames }, "Updated wanted games");
   }
 
   private cleanupChannels(): void {
