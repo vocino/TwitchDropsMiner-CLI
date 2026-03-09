@@ -4,7 +4,8 @@ import { MaintenanceScheduler } from "./maintenance.js";
 import { SessionManager } from "../auth/sessionManager.js";
 import { GQL_OPERATIONS } from "../integrations/gqlOperations.js";
 import { gqlRequest } from "../integrations/gqlClient.js";
-import { Channel, canWatchChannel, sortChannelCandidates } from "../domain/channel.js";
+import { Channel, canWatchChannel, sortChannelCandidates, shouldSwitchChannel } from "../domain/channel.js";
+import { fetchChannelsForWantedGames } from "./channelService.js";
 import { saveSessionState } from "../state/sessionState.js";
 import { logger } from "./runtime.js";
 import { buildInventoryFromGqlResponses, DropsCampaign } from "../domain/inventory.js";
@@ -179,33 +180,37 @@ export class Miner {
 
   private cleanupChannels(): void {
     this.channels = this.channels.filter((ch) => canWatchChannel(ch, this.wantedGames));
+    if (this.watchingChannel && !canWatchChannel(this.watchingChannel, this.wantedGames)) {
+      this.watchingChannel = null;
+    }
   }
 
   private async fetchChannels(token: string): Promise<void> {
-    // Placeholder: query a generic directory for the first wanted game.
-    const slug = this.wantedGames[0]?.toLowerCase().replace(/\s+/g, "-") ?? "just-chatting";
-    await gqlRequest(GQL_OPERATIONS.GameDirectory, token, { slug, limit: 30 });
-    // In parity stages this will map real channel payloads.
-    this.channels = [
-      {
-        id: "1",
-        login: "placeholder_channel",
-        online: true,
-        viewers: 1000,
-        gameName: this.wantedGames[0],
-        dropsEnabled: true
-      }
-    ];
+    if (this.wantedGames.length === 0) {
+      this.channels = [];
+      return;
+    }
+    this.channels = await fetchChannelsForWantedGames(token, {
+      wantedGames: this.wantedGames,
+      campaigns: this.campaigns,
+      maxChannels: 100
+    });
+    logger.debug({ count: this.channels.length, wantedGames: this.wantedGames }, "Fetched channels");
   }
 
   private switchChannel(): void {
     const candidates = sortChannelCandidates(this.channels, this.wantedGames).filter((ch) =>
       canWatchChannel(ch, this.wantedGames)
     );
-    this.watchingChannel = candidates[0] ?? null;
-    if (this.watchingChannel) {
+    const best = candidates[0] ?? null;
+    if (best && shouldSwitchChannel(this.watchingChannel, best, this.wantedGames)) {
+      this.watchingChannel = best;
       logger.info(`Watching channel: ${this.watchingChannel.login}`);
-    } else {
+    } else if (!this.watchingChannel && best) {
+      this.watchingChannel = best;
+      logger.info(`Watching channel: ${this.watchingChannel.login}`);
+    } else if (!best) {
+      this.watchingChannel = null;
       logger.info("No channel candidates available.");
     }
   }
