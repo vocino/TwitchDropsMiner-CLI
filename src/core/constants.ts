@@ -1,0 +1,16 @@
+export const TWITCH_OAUTH_DEVICE_URL = "https://id.twitch.tv/oauth2/device";
+export const TWITCH_OAUTH_TOKEN_URL = "https://id.twitch.tv/oauth2/token";
+export const TWITCH_OAUTH_VALIDATE_URL = "https://id.twitch.tv/oauth2/validate";
+export const TWITCH_GQL_URL = "https://gql.twitch.tv/gql";
+export const TWITCH_PUBSUB_URL = "wss://pubsub-edge.twitch.tv/v1";
+
+export const WATCH_INTERVAL_MS = 59_000;
+export const PING_INTERVAL_MS = 180_000;
+export const PING_TIMEOUT_MS = 10_000;
+export const MAX_WEBSOCKETS = 8;
+export const WS_TOPICS_LIMIT = 50;
+
+export const TWITCH_ANDROID_CLIENT_ID = "kd1unb4b3q4t58fwlpcbzcbnm76a8fp";
+export const TWITCH_ANDROID_USER_AGENT =
+  "Dalvik/2.1.0 (Linux; Android 16; SM-S911B Build/TP1A.220624.014) tv.twitch.android.app/25.3.0/2503006";
+
