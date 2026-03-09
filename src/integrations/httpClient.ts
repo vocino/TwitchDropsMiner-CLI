@@ -31,6 +31,7 @@ export async function httpJson<T = unknown>(
         body: body !== undefined ? JSON.stringify(body) : undefined
       });
       const text = await response.body.text();
+
       if (response.statusCode >= 500) {
         throw new Error(`HTTP ${response.statusCode}: ${text}`);
       }
