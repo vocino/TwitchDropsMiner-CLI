@@ -6,6 +6,8 @@ export interface Channel {
   gameName?: string;
   dropsEnabled?: boolean;
   aclBased?: boolean;
+  /** Stream/broadcast ID for spade minute-watched payload (from directory or GetStream). */
+  streamId?: string;
 }
 
 export function canWatchChannel(channel: Channel, wantedGames: string[]): boolean {

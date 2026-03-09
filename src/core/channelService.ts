@@ -43,6 +43,7 @@ export function parseGameDirectoryResponse(
     const displayGame = gameNode
       ? String(gameNode.displayName ?? gameNode.name ?? gameName)
       : gameName;
+    const streamId = node.id != null ? String(node.id) : undefined;
 
     channels.push({
       id,
@@ -51,7 +52,8 @@ export function parseGameDirectoryResponse(
       viewers: Number.isFinite(viewers) ? viewers : 0,
       gameName: displayGame,
       dropsEnabled: node.isDropsEnabled === false ? false : true,
-      aclBased
+      aclBased,
+      streamId
     });
   }
 

@@ -6,6 +6,7 @@ import { GQL_OPERATIONS } from "../integrations/gqlOperations.js";
 import { gqlRequest } from "../integrations/gqlClient.js";
 import { Channel, canWatchChannel, sortChannelCandidates, shouldSwitchChannel } from "../domain/channel.js";
 import { fetchChannelsForWantedGames } from "./channelService.js";
+import { sendChannelWatch } from "../integrations/twitchSpade.js";
 import { saveSessionState } from "../state/sessionState.js";
 import { logger } from "./runtime.js";
 import { buildInventoryFromGqlResponses, DropsCampaign } from "../domain/inventory.js";
@@ -21,6 +22,8 @@ export class Miner {
   private wantedGames: string[] = [];
   private channels: Channel[] = [];
   private watchingChannel: Channel | null = null;
+  private userId: string | null = null;
+  private readonly spadeUrlCache = new Map<string, string>();
 
   async run(): Promise<void> {
     if (this.running) {
@@ -36,17 +39,25 @@ export class Miner {
       throw new Error("Missing auth token. Run `tdm auth login --no-open` first.");
     }
 
-    await session.validateAccessToken(token);
+    const validation = await session.validateAccessToken(token);
+    this.userId = validation.user_id;
     logger.info("Auth validated. Starting miner.");
 
     this.state.setState("INVENTORY_FETCH");
     await this.tickState(token);
 
     this.watchLoop.start(async () => {
-      if (!this.watchingChannel) {
+      if (!this.watchingChannel || !this.userId) {
         return;
       }
-      logger.info(`Watch heartbeat for channel ${this.watchingChannel.login}`);
+      const ok = await sendChannelWatch(this.watchingChannel, this.userId, token, {
+        spadeUrlCache: this.spadeUrlCache
+      });
+      if (ok) {
+        logger.info(`Watch tick sent for channel ${this.watchingChannel.login}`);
+      } else {
+        logger.warn(`Watch tick failed for channel ${this.watchingChannel.login}`);
+      }
       saveSessionState({
         state: this.state.state,
         watchedChannelId: this.watchingChannel.id,
