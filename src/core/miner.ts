@@ -29,12 +29,14 @@ export class Miner {
   private lastInventoryFetchHour: number = 0;
   private readonly spadeUrlCache = new Map<string, string>();
   private pubsub: TwitchPubSub | null = null;
+  private dryRun = false;
 
-  async run(): Promise<void> {
+  async run(options?: { dryRun?: boolean }): Promise<void> {
     if (this.running) {
       return;
     }
     this.running = true;
+    this.dryRun = options?.dryRun ?? false;
 
     this.config = loadConfig();
 
@@ -64,13 +66,19 @@ export class Miner {
       if (!this.watchingChannel || !this.userId) {
         return;
       }
-      const ok = await sendChannelWatch(this.watchingChannel, this.userId, token, {
-        spadeUrlCache: this.spadeUrlCache
-      });
-      if (ok) {
-        logger.info(`Watch tick sent for channel ${this.watchingChannel.login}`);
+      if (this.dryRun) {
+        logger.info(
+          `[dry-run] Would send watch for channel ${this.watchingChannel.login} (id=${this.watchingChannel.id})`
+        );
       } else {
-        logger.warn(`Watch tick failed for channel ${this.watchingChannel.login}`);
+        const ok = await sendChannelWatch(this.watchingChannel, this.userId, token, {
+          spadeUrlCache: this.spadeUrlCache
+        });
+        if (ok) {
+          logger.info(`Watch tick sent for channel ${this.watchingChannel.login}`);
+        } else {
+          logger.warn(`Watch tick failed for channel ${this.watchingChannel.login}`);
+        }
       }
       saveSessionState({
         state: this.state.state,
@@ -129,6 +137,12 @@ export class Miner {
     for (const campaign of this.campaigns) {
       for (const drop of campaign.drops) {
         if (!drop.canClaim || !drop.dropInstanceId) continue;
+        if (this.dryRun) {
+          logger.info(
+            `[dry-run] Would claim drop ${drop.name} (instanceId=${drop.dropInstanceId})`
+          );
+          continue;
+        }
         try {
           await gqlRequest(GQL_OPERATIONS.ClaimDrop, token, {
             input: { dropInstanceID: drop.dropInstanceId }
