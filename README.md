@@ -1,21 +1,24 @@
 # TwitchDropsMiner-CLI
 
-Headless, npm-installable CLI rewrite of TwitchDropsMiner for Linux server operation.
+Headless, npm-installable CLI rewrite of [TwitchDropsMiner](https://github.com/DevilXD/TwitchDropsMiner) for Linux server operation.
+
+**Based on:** [DevilXD/TwitchDropsMiner](https://github.com/DevilXD/TwitchDropsMiner) — the original Python/GUI app that AFK mines timed Twitch drops with automatic claiming and channel switching. This CLI reimplements the same behavior (GQL, spade, PubSub, priority lists) for headless and server use.
 
 ## Install
 
-**Global install from GitHub** (puts `tdm` on your PATH):
+**Global install from npm** (recommended; puts `tdm` on your PATH):
+
+```bash
+npm install -g twitchdropsminer-cli
+tdm doctor
+```
+
+**Alternative: global install from GitHub** (equivalent CLI, installs directly from this repo):
 
 ```bash
 npm install -g github:vocino/TwitchDropsMiner-CLI
 tdm doctor
 ```
-
-> **Note:** The npm registry package name `twitchdropsminer-cli` is reserved but not yet published. Once it is available, global install will also work via:
->
-> ```bash
-> npm install -g twitchdropsminer-cli
-> ```
 
 **Run from project** (no global install): from the repo root run `npm install`, `npm run build`, then use `npx tdm`:
 
@@ -143,4 +146,8 @@ More ops docs:
 - **"Another tdm instance appears to be running"** – Only one miner can run at a time (lock file). If the previous run was **force-killed**, **crashed**, or didn’t exit cleanly, remove the lock and try again:  
   **Windows:** delete `%USERPROFILE%\.local\state\tdm\lock.file`  
   **Linux/macOS:** `rm -f ~/.local/state/tdm/lock.file`
+
+## Credits
+
+This CLI is based on [**TwitchDropsMiner**](https://github.com/DevilXD/TwitchDropsMiner) by [DevilXD](https://github.com/DevilXD) — the original desktop app that mines Twitch drops without streaming video. TwitchDropsMiner-CLI reimplements its behavior (inventory, spade beacons, PubSub, game priority, auto-claim) for headless and server use.
 
