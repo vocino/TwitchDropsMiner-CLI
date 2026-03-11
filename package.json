@@ -1,7 +1,7 @@
 {
   "name": "twitchdropsminer-cli",
   "version": "0.1.0",
-  "description": "Headless CLI rewrite of TwitchDropsMiner for mining Twitch drops on servers.",
+  "description": "Headless CLI rewrite of DevilXD/TwitchDropsMiner for mining Twitch drops on servers.",
   "bin": {
     "tdm": "dist/cli/index.js"
   },
@@ -16,8 +16,7 @@
     "build": "tsc",
     "dev": "ts-node src/cli/index.ts",
     "lint": "echo \"no linter configured\"",
-    "test": "npm run build && node --test dist/tests/index.js",
-    "prepare": "npm run build"
+    "test": "npm run build && node --test dist/tests/index.js"
   },
   "engines": {
     "node": ">=20.0.0"

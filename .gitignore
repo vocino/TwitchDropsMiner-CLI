@@ -1,0 +1,4 @@
+node_modules/
+# Allow dist/ so pre-built CLI is committed (install has no build step)
+!dist/
+!dist/**
