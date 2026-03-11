@@ -13,7 +13,7 @@
   ],
   "type": "module",
   "scripts": {
-    "build": "npx tsc",
+    "build": "tsc",
     "dev": "ts-node src/cli/index.ts",
     "lint": "echo \"no linter configured\"",
     "test": "npm run build && node --test dist/tests/index.js",
