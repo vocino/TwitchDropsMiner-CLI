@@ -1,12 +1,13 @@
 {
   "name": "twitchdropsminer-cli",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Headless CLI rewrite of DevilXD/TwitchDropsMiner for mining Twitch drops on servers.",
   "bin": {
     "tdm": "dist/cli/index.js"
   },
   "main": "dist/cli/index.js",
   "files": [
+    "README.md",
     "dist",
     "docs/ops",
     "resources/systemd"
