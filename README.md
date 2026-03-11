@@ -96,6 +96,15 @@ tdm run --verbose
 tdm run --dry-run --verbose   # log actions only; no spade/claim network writes
 ```
 
+### Stopping the miner
+
+Stop it gracefully so the lock file is removed automatically:
+
+- **In a terminal:** **Ctrl+C** (Windows or Linux/macOS). The miner handles SIGINT, shuts down, and exits; the lock is cleared on exit.
+- **As a systemd service:** `tdm service stop` or `systemctl --user stop tdm` (sends SIGTERM; same clean shutdown).
+
+You only need to [remove the lock file manually](#troubleshooting) if the process was **force-killed** (e.g. kill -9), **crashed**, or the machine lost power—cases where the process never got to run its exit handler.
+
 ### How it mines drops
 
 1. **Inventory** – Fetches your in-progress campaigns and drop state via Twitch GQL.
@@ -125,7 +134,7 @@ More ops docs:
 
 ### Troubleshooting
 
-- **"Another tdm instance appears to be running"** – Only one miner can run at a time (lock file). If the previous run was killed or crashed, remove the lock and try again:  
+- **"Another tdm instance appears to be running"** – Only one miner can run at a time (lock file). If the previous run was **force-killed**, **crashed**, or didn’t exit cleanly, remove the lock and try again:  
   **Windows:** delete `%USERPROFILE%\.local\state\tdm\lock.file`  
   **Linux/macOS:** `rm -f ~/.local/state/tdm/lock.file`
 
