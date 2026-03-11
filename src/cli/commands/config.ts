@@ -1,5 +1,5 @@
 import { Command } from "@commander-js/extra-typings";
-import { loadConfig, saveConfig } from "../../config/store.js";
+import { loadConfig, saveConfig, configPath } from "../../config/store.js";
 import { ConfigSchema } from "../../config/schema.js";
 
 export const configCommand = new Command("config").description(
@@ -44,7 +44,15 @@ const validateCommand = new Command("validate").action(async () => {
   console.log("Config is valid.");
 });
 
+const pathCommand = new Command("path")
+  .description("Print config file path (create dir if missing)")
+  .action(() => {
+    // eslint-disable-next-line no-console
+    console.log(configPath());
+  });
+
 configCommand.addCommand(getCommand);
 configCommand.addCommand(setCommand);
 configCommand.addCommand(validateCommand);
+configCommand.addCommand(pathCommand);
 

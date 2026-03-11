@@ -3,6 +3,7 @@ import { DropsCampaign } from "../domain/inventory.js";
 import { GQL_OPERATIONS } from "../integrations/gqlOperations.js";
 import { gqlRequest } from "../integrations/gqlClient.js";
 import { sortChannelCandidates, canWatchChannel } from "../domain/channel.js";
+import { logger } from "./runtime.js";
 
 export const MAX_CHANNELS = 100;
 
@@ -80,6 +81,14 @@ export function getAclChannelIdsFromCampaigns(_campaigns: DropsCampaign[]): Set<
  * Fetch channels for wanted games via GameDirectory GQL, merge and cap to maxChannels.
  * ACL channels (from campaign allowlist) are marked and preferred in sorting elsewhere.
  */
+/**
+ * Resolve game name to Twitch directory slug (from campaigns when available).
+ */
+function gameNameToSlug(gameName: string, campaigns: DropsCampaign[]): string {
+  const c = campaigns.find((camp) => camp.gameName === gameName);
+  return c ? c.gameSlug : gameName.toLowerCase().replace(/\s+/g, "-");
+}
+
 export async function fetchChannelsForWantedGames(
   token: string,
   options: ChannelServiceOptions
@@ -89,12 +98,22 @@ export async function fetchChannelsForWantedGames(
   const byId = new Map<string, Channel>();
 
   for (const gameName of wantedGames) {
-    const slug = gameName.toLowerCase().replace(/\s+/g, "-");
+    const slug = gameNameToSlug(gameName, campaigns);
     const response = await gqlRequest<unknown>(
       GQL_OPERATIONS.GameDirectory,
       token,
-      { slug, limit: 30 }
+      {
+        slug,
+        limit: 30,
+        sortTypeIsRecency: false,
+        includeCostreaming: false
+      }
     );
+    const resp = response as Json;
+    const gqlErrors = resp?.errors as unknown[] | undefined;
+    if (gqlErrors?.length) {
+      logger.warn({ gameName, slug, gqlErrors }, "GameDirectory GQL errors");
+    }
     const aclBased = false;
     const list = parseGameDirectoryResponse(response, gameName, aclBased);
     for (const ch of list) {

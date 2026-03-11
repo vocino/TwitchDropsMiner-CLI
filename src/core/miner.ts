@@ -293,14 +293,34 @@ export class Miner {
   }
 
   private updateWantedGames(): void {
-    const cfg = this.config ?? loadConfig();
+    // Reload config from disk so we always use latest priority (e.g. after tdm games --add or manual edit).
+    const cfg = loadConfig();
     const exclude = new Set(cfg.exclude);
     const priority = cfg.priority;
     const priorityMode = cfg.priorityMode;
     const priorityOnly = priorityMode === "priority_only";
 
     const nextHour = new Date(Date.now() + 60 * 60 * 1000);
-    let campaigns = this.campaigns.filter((c) => c.canEarnWithin(nextHour));
+    const earnable = this.campaigns.filter((c) => c.canEarnWithin(nextHour));
+
+    if (earnable.length === 0 && this.campaigns.length > 0) {
+      logger.warn(
+        {
+          totalCampaigns: this.campaigns.length,
+          campaignGames: this.campaigns.slice(0, 5).map((c) => ({
+            game: c.gameName,
+            eligible: c.eligible,
+            active: c.active,
+            canEarnWithin: c.canEarnWithin(nextHour)
+          })),
+          priority,
+          priorityMode
+        },
+        "No campaigns passed canEarnWithin; check campaign dates/eligibility"
+      );
+    }
+
+    let campaigns = earnable;
 
     if (!priorityOnly) {
       if (priorityMode === "ending_soonest") {
@@ -327,6 +347,24 @@ export class Miner {
       wanted.push(game);
     }
 
+    // If priority_only and we have priority set but no earnable campaign was in the list,
+    // still add priority games that exist in our campaign list so we fetch channels for them.
+    if (wanted.length === 0 && priorityOnly && priority.length > 0) {
+      const campaignGameNames = new Set(this.campaigns.map((c) => c.gameName));
+      for (const game of priority) {
+        if (exclude.has(game)) continue;
+        if (campaignGameNames.has(game)) {
+          wanted.push(game);
+        }
+      }
+      if (wanted.length > 0) {
+        logger.debug(
+          { addedFromPriority: wanted },
+          "No earnable campaigns in priority; using priority games for channel fetch"
+        );
+      }
+    }
+
     this.wantedGames = wanted;
     logger.info({ wantedGames: this.wantedGames }, "Updated wanted games");
   }
@@ -348,7 +386,7 @@ export class Miner {
       campaigns: this.campaigns,
       maxChannels: 100
     });
-    logger.debug({ count: this.channels.length, wantedGames: this.wantedGames }, "Fetched channels");
+    logger.info({ count: this.channels.length, wantedGames: this.wantedGames }, "Fetched channels");
   }
 
   private switchChannel(): void {

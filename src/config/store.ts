@@ -9,7 +9,7 @@ function configDir(): string {
   return dir;
 }
 
-function configPath(): string {
+export function configPath(): string {
   return path.join(configDir(), "config.json");
 }
 
