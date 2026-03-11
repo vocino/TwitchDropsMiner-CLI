@@ -4,12 +4,18 @@ Headless, npm-installable CLI rewrite of TwitchDropsMiner for Linux server opera
 
 ## Install
 
-**Global install** (puts `tdm` on your PATH):
+**Global install from GitHub** (puts `tdm` on your PATH):
 
 ```bash
-npm install -g twitchdropsminer-cli
+npm install -g github:vocino/TwitchDropsMiner-CLI
 tdm doctor
 ```
+
+> **Note:** The npm registry package name `twitchdropsminer-cli` is reserved but not yet published. Once it is available, global install will also work via:
+>
+> ```bash
+> npm install -g twitchdropsminer-cli
+> ```
 
 **Run from project** (no global install): from the repo root run `npm install`, `npm run build`, then use `npx tdm`:
 

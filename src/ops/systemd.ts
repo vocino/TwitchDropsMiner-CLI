@@ -27,28 +27,38 @@ export function getUnitPath(opts: InstallOptions): string {
 }
 
 export function generateUnitContents(opts: InstallOptions): string {
-  const user = os.userInfo().username;
   const nodePath = process.execPath;
-  const cliBin = "tdm";
+  const cliEntry = process.argv[1];
+  const isUserUnit = opts.userUnit;
 
-  return [
+  const lines = [
     "[Unit]",
     "Description=Twitch Drops Miner CLI",
     "After=network-online.target",
     "Wants=network-online.target",
     "",
     "[Service]",
-    `ExecStart=${nodePath} ${cliBin} run`,
+    `ExecStart=${nodePath} ${cliEntry} run`,
     "Restart=on-failure",
     "RestartSec=5",
     "Type=simple",
-    `User=${user}`,
     "Environment=TDM_LOG_LEVEL=info",
     "NoNewPrivileges=true",
     "",
     "[Install]",
     "WantedBy=default.target"
-  ].join("\n");
+  ];
+
+  // For user units, systemd already runs as the invoking user; adding User= breaks them.
+  if (!isUserUnit) {
+    const user = os.userInfo().username;
+    const serviceIndex = lines.indexOf("[Service]");
+    if (serviceIndex !== -1) {
+      lines.splice(serviceIndex + 2, 0, `User=${user}`);
+    }
+  }
+
+  return lines.join("\n");
 }
 
 export function writeUnitFile(opts: InstallOptions): string {

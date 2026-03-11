@@ -16,7 +16,8 @@
     "build": "npx tsc",
     "dev": "ts-node src/cli/index.ts",
     "lint": "echo \"no linter configured\"",
-    "test": "npm run build && node --test dist/tests/index.js"
+    "test": "npm run build && node --test dist/tests/index.js",
+    "prepare": "npm run build"
   },
   "engines": {
     "node": ">=20.0.0"
