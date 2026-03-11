@@ -53,7 +53,6 @@ export class Miner {
         this.watchLoop.start(async () => {
             if (this.state.state !== "IDLE") {
                 await this.tickState(token);
-                return;
             }
             if (!this.watchingChannel || !this.userId) {
                 return;
