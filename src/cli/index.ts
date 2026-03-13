@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { Command } from "@commander-js/extra-typings";
+import { createRequire } from "node:module";
 import { runCommand } from "./commands/run.js";
 import { authCommand } from "./commands/auth.js";
 import { statusCommand } from "./commands/status.js";
@@ -13,11 +14,13 @@ import { logsCommand } from "./commands/logs.js";
 import { ensureSingleInstanceLock } from "../core/runtime.js";
 
 const program = new Command();
+const require = createRequire(import.meta.url);
+const { version } = require("../../package.json") as { version: string };
 
 program
   .name("tdm")
   .description("Twitch Drops Miner CLI (headless)")
-  .version("0.1.0");
+  .version(version);
 
 program.hook("preAction", (_thisCommand, actionCommand) => {
   if (actionCommand.name() === "run" && !actionCommand.getOptionValue("noLock")) {
