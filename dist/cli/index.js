@@ -16,7 +16,7 @@ program
     .description("Twitch Drops Miner CLI (headless)")
     .version("0.1.0");
 program.hook("preAction", (_thisCommand, actionCommand) => {
-    if (actionCommand.name() === "run") {
+    if (actionCommand.name() === "run" && !actionCommand.getOptionValue("noLock")) {
         ensureSingleInstanceLock();
     }
 });

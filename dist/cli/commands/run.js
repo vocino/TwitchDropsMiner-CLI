@@ -5,6 +5,7 @@ export const runCommand = new Command("run")
     .description("Run the Twitch drops miner")
     .option("-v, --verbose", "Enable verbose logging")
     .option("--dry-run", "Log intended actions only; no spade POST or claim GQL")
+    .option("--no-lock", "Skip single-instance lock (use if a previous run left a stale lock)")
     .action(async (opts) => {
     if (opts.verbose) {
         process.env.TDM_LOG_LEVEL = "debug";
