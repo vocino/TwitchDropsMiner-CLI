@@ -29,6 +29,10 @@ export class Miner {
     spadeUrlCache = new Map();
     pubsub = null;
     dryRun = false;
+    signalHandlersAttached = false;
+    onShutdownSignal = () => {
+        void this.shutdown();
+    };
     async run(options) {
         if (this.running) {
             return;
@@ -96,14 +100,10 @@ export class Miner {
                 this.state.setState("CHANNELS_CLEANUP");
             }
         });
-        process.on("SIGINT", () => {
-            void this.shutdown();
-        });
-        process.on("SIGTERM", () => {
-            void this.shutdown();
-        });
+        this.attachSignalHandlers();
     }
     async shutdown() {
+        this.detachSignalHandlers();
         this.running = false;
         this.watchLoop.stop();
         this.maintenance.stop();
@@ -119,6 +119,22 @@ export class Miner {
             watchedChannelId: this.watchingChannel?.id,
             watchedChannelName: this.watchingChannel?.login
         });
+    }
+    attachSignalHandlers() {
+        if (this.signalHandlersAttached) {
+            return;
+        }
+        this.signalHandlersAttached = true;
+        process.on("SIGINT", this.onShutdownSignal);
+        process.on("SIGTERM", this.onShutdownSignal);
+    }
+    detachSignalHandlers() {
+        if (!this.signalHandlersAttached) {
+            return;
+        }
+        process.off("SIGINT", this.onShutdownSignal);
+        process.off("SIGTERM", this.onShutdownSignal);
+        this.signalHandlersAttached = false;
     }
     async claimEligibleDrops(token) {
         for (const campaign of this.campaigns) {

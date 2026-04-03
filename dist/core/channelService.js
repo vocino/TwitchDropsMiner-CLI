@@ -2,6 +2,8 @@ import { GQL_OPERATIONS } from "../integrations/gqlOperations.js";
 import { gqlRequest } from "../integrations/gqlClient.js";
 import { sortChannelCandidates, canWatchChannel } from "../domain/channel.js";
 import { logger } from "./runtime.js";
+import { mapWithConcurrency } from "./concurrency.js";
+import { loadConfig } from "../config/store.js";
 export const MAX_CHANNELS = 100;
 /**
  * Parse Twitch GQL DirectoryPage_Game response into Channel list.
@@ -57,10 +59,6 @@ export function getAclChannelIdsFromCampaigns(_campaigns) {
     return ids;
 }
 /**
- * Fetch channels for wanted games via GameDirectory GQL, merge and cap to maxChannels.
- * ACL channels (from campaign allowlist) are marked and preferred in sorting elsewhere.
- */
-/**
  * Resolve game name to Twitch directory slug (from campaigns when available).
  */
 function gameNameToSlug(gameName, campaigns) {
@@ -69,16 +67,22 @@ function gameNameToSlug(gameName, campaigns) {
 }
 export async function fetchChannelsForWantedGames(token, options) {
     const { wantedGames, campaigns, maxChannels = MAX_CHANNELS } = options;
+    const gql = options.gqlRequestImpl ??
+        ((op, t, v) => gqlRequest(op, t, v));
+    const concurrency = options.fetchConcurrency ?? loadConfig().channelFetchConcurrency;
     const aclIds = getAclChannelIdsFromCampaigns(campaigns);
     const byId = new Map();
-    for (const gameName of wantedGames) {
+    const rows = await mapWithConcurrency(wantedGames, concurrency, async (gameName) => {
         const slug = gameNameToSlug(gameName, campaigns);
-        const response = await gqlRequest(GQL_OPERATIONS.GameDirectory, token, {
+        const response = await gql(GQL_OPERATIONS.GameDirectory, token, {
             slug,
             limit: 30,
             sortTypeIsRecency: false,
             includeCostreaming: false
         });
+        return { gameName, slug, response };
+    });
+    for (const { gameName, slug, response } of rows) {
         const resp = response;
         const gqlErrors = resp?.errors;
         if (gqlErrors?.length) {

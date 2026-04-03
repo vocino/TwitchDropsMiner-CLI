@@ -1,5 +1,20 @@
 import { Command } from "@commander-js/extra-typings";
 import { loadSessionState } from "../../state/sessionState.js";
+import { isMinerLockHeldByLiveProcess } from "../../core/runtime.js";
+const SESSION_FRESH_MS = 120_000;
+function sessionImpliesRunning(rawState, updatedAt) {
+    if (rawState === "EXIT" || rawState === "UNKNOWN") {
+        return false;
+    }
+    if (!updatedAt) {
+        return false;
+    }
+    const t = new Date(updatedAt).getTime();
+    if (!Number.isFinite(t)) {
+        return false;
+    }
+    return Date.now() - t < SESSION_FRESH_MS;
+}
 export const statusCommand = new Command("status")
     .description("Show current miner status")
     .option("--json", "Output status as JSON")
@@ -11,8 +26,11 @@ export const statusCommand = new Command("status")
         : rawState !== "IDLE" && rawState !== "EXIT"
             ? "MAINTENANCE"
             : rawState;
+    const lockHeld = isMinerLockHeldByLiveProcess();
+    const running = lockHeld || sessionImpliesRunning(rawState, session?.updatedAt);
     const status = {
-        running: rawState !== "EXIT",
+        running,
+        lockHeld,
         state: highLevel,
         rawState,
         watchedChannel: session?.watchedChannelName ?? null,
@@ -24,6 +42,6 @@ export const statusCommand = new Command("status")
     }
     else {
         // eslint-disable-next-line no-console
-        console.log(`State=${status.state}, channel=${status.watchedChannel ?? "-"}, activeDrop=${status.activeDrop ?? "-"}`);
+        console.log(`Running=${status.running}, lock=${status.lockHeld}, state=${status.state}, channel=${status.watchedChannel ?? "-"}, activeDrop=${status.activeDrop ?? "-"}`);
     }
 });
