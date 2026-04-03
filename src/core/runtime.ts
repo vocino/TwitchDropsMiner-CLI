@@ -9,14 +9,37 @@ export const logger = pino({
 
 let lockFd: number | null = null;
 
-function lockPath(): string {
+export function minerLockPath(): string {
   const dir = path.join(os.homedir(), ".local", "state", "tdm");
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   return path.join(dir, "lock.file");
 }
 
+/** True if lock file exists and the recorded PID is still running (best-effort). */
+export function isMinerLockHeldByLiveProcess(): boolean {
+  const p = minerLockPath();
+  if (!fs.existsSync(p)) {
+    return false;
+  }
+  try {
+    const raw = fs.readFileSync(p, "utf8").trim();
+    const pid = Number(raw);
+    if (!Number.isFinite(pid) || pid <= 0) {
+      return true;
+    }
+    try {
+      process.kill(pid, 0);
+      return true;
+    } catch {
+      return false;
+    }
+  } catch {
+    return false;
+  }
+}
+
 export function ensureSingleInstanceLock(): void {
-  const p = lockPath();
+  const p = minerLockPath();
   try {
     lockFd = fs.openSync(p, "wx", 0o600);
     fs.writeFileSync(lockFd, String(process.pid));

@@ -30,6 +30,10 @@ export class Miner {
   private readonly spadeUrlCache = new Map<string, string>();
   private pubsub: TwitchPubSub | null = null;
   private dryRun = false;
+  private signalHandlersAttached = false;
+  private readonly onShutdownSignal = (): void => {
+    void this.shutdown();
+  };
 
   async run(options?: { dryRun?: boolean }): Promise<void> {
     if (this.running) {
@@ -106,15 +110,11 @@ export class Miner {
       }
     });
 
-    process.on("SIGINT", () => {
-      void this.shutdown();
-    });
-    process.on("SIGTERM", () => {
-      void this.shutdown();
-    });
+    this.attachSignalHandlers();
   }
 
   async shutdown(): Promise<void> {
+    this.detachSignalHandlers();
     this.running = false;
     this.watchLoop.stop();
     this.maintenance.stop();
@@ -130,6 +130,24 @@ export class Miner {
       watchedChannelId: this.watchingChannel?.id,
       watchedChannelName: this.watchingChannel?.login
     });
+  }
+
+  private attachSignalHandlers(): void {
+    if (this.signalHandlersAttached) {
+      return;
+    }
+    this.signalHandlersAttached = true;
+    process.on("SIGINT", this.onShutdownSignal);
+    process.on("SIGTERM", this.onShutdownSignal);
+  }
+
+  private detachSignalHandlers(): void {
+    if (!this.signalHandlersAttached) {
+      return;
+    }
+    process.off("SIGINT", this.onShutdownSignal);
+    process.off("SIGTERM", this.onShutdownSignal);
+    this.signalHandlersAttached = false;
   }
 
   private async claimEligibleDrops(token: string): Promise<void> {
