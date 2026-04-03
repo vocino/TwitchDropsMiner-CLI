@@ -1,35 +1,55 @@
 import WebSocket from "ws";
-import { PING_INTERVAL_MS, TWITCH_PUBSUB_URL, WS_TOPICS_LIMIT } from "../core/constants.js";
+import {
+  PING_INTERVAL_MS,
+  PING_TIMEOUT_MS,
+  TWITCH_PUBSUB_URL,
+  WS_TOPICS_LIMIT
+} from "../core/constants.js";
 
 export type TopicHandler = (message: Record<string, unknown>) => Promise<void> | void;
+
+export type WebSocketFactory = (url: string) => WebSocket;
+
+const RECONNECT_BASE_MS = 1_000;
+const RECONNECT_MAX_MS = 60_000;
+
+function reconnectDelayMs(attempt: number): number {
+  const exp = Math.min(RECONNECT_MAX_MS, RECONNECT_BASE_MS * 2 ** Math.min(attempt, 10));
+  const jitter = Math.floor(Math.random() * 0.25 * exp);
+  return exp + jitter;
+}
 
 export class TwitchPubSub {
   private ws: WebSocket | null = null;
   private pingTimer: NodeJS.Timeout | null = null;
+  private pongWatchTimer: NodeJS.Timeout | null = null;
+  private reconnectTimer: NodeJS.Timeout | null = null;
   private handlers = new Map<string, TopicHandler>();
   private subscribedTopics = new Set<string>();
   private authToken: string | null = null;
+  private stopped = false;
+  private reconnectAttempt = 0;
+  private readonly createWs: WebSocketFactory;
+
+  constructor(options?: { createWebSocket?: WebSocketFactory }) {
+    this.createWs = options?.createWebSocket ?? ((url: string) => new WebSocket(url));
+  }
 
   async start(): Promise<void> {
+    if (this.stopped) {
+      return;
+    }
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       return;
     }
-
-    await new Promise<void>((resolve, reject) => {
-      const ws = new WebSocket(TWITCH_PUBSUB_URL);
-      this.ws = ws;
-      ws.on("open", () => {
-        this.startPing();
-        resolve();
-      });
-      ws.on("error", (err: Error) => reject(err));
-      ws.on("message", (data: WebSocket.RawData) => this.onMessage(data.toString()));
-      ws.on("close", () => this.stopPing());
-    });
+    await this.connectOnce();
   }
 
   async stop(): Promise<void> {
+    this.stopped = true;
+    this.clearReconnectTimer();
     this.stopPing();
+    this.clearPongWatch();
     this.subscribedTopics.clear();
     this.authToken = null;
     const ws = this.ws;
@@ -49,9 +69,6 @@ export class TwitchPubSub {
 
   /** Subscribe to topics; batches and enforces WS_TOPICS_LIMIT. Stores token for reconnect. */
   listen(topics: string[], authToken: string): void {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      throw new Error("PubSub socket is not connected.");
-    }
     this.authToken = authToken;
     const toAdd = topics.filter((t) => !this.subscribedTopics.has(t));
     if (toAdd.length === 0) return;
@@ -61,23 +78,18 @@ export class TwitchPubSub {
     for (const t of batch) {
       this.subscribedTopics.add(t);
     }
-    this.ws.send(
-      JSON.stringify({
-        type: "LISTEN",
-        data: { topics: batch, auth_token: authToken }
-      })
-    );
+    this.sendListenBatch(batch, authToken);
   }
 
   /** Unsubscribe from topics and send UNLISTEN. */
   unlisten(topics: string[], authToken: string): void {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      return;
-    }
     const toRemove = topics.filter((t) => this.subscribedTopics.has(t));
     if (toRemove.length === 0) return;
     for (const t of toRemove) {
       this.subscribedTopics.delete(t);
+    }
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      return;
     }
     this.ws.send(
       JSON.stringify({
@@ -91,10 +103,102 @@ export class TwitchPubSub {
     return Array.from(this.subscribedTopics);
   }
 
+  private clearReconnectTimer(): void {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+  }
+
+  private scheduleReconnect(): void {
+    if (this.stopped || this.reconnectTimer) {
+      return;
+    }
+    const delay = reconnectDelayMs(this.reconnectAttempt);
+    this.reconnectAttempt += 1;
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      void this.connectOnce().catch(() => {
+        if (!this.stopped) {
+          this.scheduleReconnect();
+        }
+      });
+    }, delay);
+  }
+
+  private async connectOnce(): Promise<void> {
+    if (this.stopped) {
+      return;
+    }
+
+    return new Promise<void>((resolve, reject) => {
+      const ws = this.createWs(TWITCH_PUBSUB_URL);
+      this.ws = ws;
+      let opened = false;
+
+      const onOpen = (): void => {
+        opened = true;
+        this.reconnectAttempt = 0;
+        this.resubscribeAll();
+        this.startPing();
+        ws.off("error", onError);
+        resolve();
+      };
+
+      const onError = (err: Error): void => {
+        ws.off("open", onOpen);
+        reject(err);
+      };
+
+      ws.once("open", onOpen);
+      ws.once("error", onError);
+
+      ws.on("message", (data: WebSocket.RawData) => {
+        void this.onMessage(data.toString());
+      });
+
+      ws.on("close", () => {
+        this.stopPing();
+        this.clearPongWatch();
+        const wasCurrent = this.ws === ws;
+        if (wasCurrent) {
+          this.ws = null;
+        }
+        if (!this.stopped && wasCurrent && opened) {
+          this.scheduleReconnect();
+        }
+      });
+    });
+  }
+
+  private resubscribeAll(): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN || !this.authToken) {
+      return;
+    }
+    const topics = Array.from(this.subscribedTopics);
+    for (let i = 0; i < topics.length; i += WS_TOPICS_LIMIT) {
+      const batch = topics.slice(i, i + WS_TOPICS_LIMIT);
+      this.sendListenBatch(batch, this.authToken);
+    }
+  }
+
+  private sendListenBatch(batch: string[], authToken: string): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      return;
+    }
+    this.ws.send(
+      JSON.stringify({
+        type: "LISTEN",
+        data: { topics: batch, auth_token: authToken }
+      })
+    );
+  }
+
   private startPing(): void {
     this.stopPing();
     this.pingTimer = setInterval(() => {
       if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        this.armPongWatch();
         this.ws.send(JSON.stringify({ type: "PING" }));
       }
     }, PING_INTERVAL_MS);
@@ -107,6 +211,28 @@ export class TwitchPubSub {
     }
   }
 
+  private armPongWatch(): void {
+    this.clearPongWatch();
+    this.pongWatchTimer = setTimeout(() => {
+      this.pongWatchTimer = null;
+      const ws = this.ws;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        try {
+          ws.terminate();
+        } catch {
+          // ignore
+        }
+      }
+    }, PING_TIMEOUT_MS);
+  }
+
+  private clearPongWatch(): void {
+    if (this.pongWatchTimer) {
+      clearTimeout(this.pongWatchTimer);
+      this.pongWatchTimer = null;
+    }
+  }
+
   private async onMessage(raw: string): Promise<void> {
     let parsed: Record<string, unknown>;
     try {
@@ -116,6 +242,7 @@ export class TwitchPubSub {
     }
 
     if (parsed.type === "PONG") {
+      this.clearPongWatch();
       return;
     }
 
@@ -138,4 +265,3 @@ export class TwitchPubSub {
     }
   }
 }
-
