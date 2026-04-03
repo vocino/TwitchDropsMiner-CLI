@@ -48,3 +48,15 @@ export function gqlPayload(operation: GqlOperation, variables?: Record<string, u
   };
 }
 
+/** Apply config overrides for persisted-query hashes (keyed by operationName). */
+export function applyGqlHashOverride(
+  operation: GqlOperation,
+  overrides: Record<string, string>
+): GqlOperation {
+  const h = overrides[operation.operationName];
+  if (!h) {
+    return operation;
+  }
+  return { ...operation, sha256Hash: h };
+}
+
