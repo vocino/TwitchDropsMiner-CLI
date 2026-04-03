@@ -1,9 +1,11 @@
 import { Channel } from "../domain/channel.js";
 import { DropsCampaign } from "../domain/inventory.js";
-import { GQL_OPERATIONS } from "../integrations/gqlOperations.js";
+import { GQL_OPERATIONS, type GqlOperation } from "../integrations/gqlOperations.js";
 import { gqlRequest } from "../integrations/gqlClient.js";
 import { sortChannelCandidates, canWatchChannel } from "../domain/channel.js";
 import { logger } from "./runtime.js";
+import { mapWithConcurrency } from "./concurrency.js";
+import { loadConfig } from "../config/store.js";
 
 export const MAX_CHANNELS = 100;
 
@@ -65,6 +67,14 @@ export interface ChannelServiceOptions {
   wantedGames: string[];
   campaigns: DropsCampaign[];
   maxChannels?: number;
+  /** Overrides config channelFetchConcurrency when set (e.g. tests). */
+  fetchConcurrency?: number;
+  /** Injected GQL caller for tests. */
+  gqlRequestImpl?: (
+    operation: GqlOperation,
+    token: string,
+    variables?: Record<string, unknown>
+  ) => Promise<unknown>;
 }
 
 /**
@@ -78,10 +88,6 @@ export function getAclChannelIdsFromCampaigns(_campaigns: DropsCampaign[]): Set<
 }
 
 /**
- * Fetch channels for wanted games via GameDirectory GQL, merge and cap to maxChannels.
- * ACL channels (from campaign allowlist) are marked and preferred in sorting elsewhere.
- */
-/**
  * Resolve game name to Twitch directory slug (from campaigns when available).
  */
 function gameNameToSlug(gameName: string, campaigns: DropsCampaign[]): string {
@@ -94,21 +100,27 @@ export async function fetchChannelsForWantedGames(
   options: ChannelServiceOptions
 ): Promise<Channel[]> {
   const { wantedGames, campaigns, maxChannels = MAX_CHANNELS } = options;
+  const gql =
+    options.gqlRequestImpl ??
+    ((op: GqlOperation, t: string, v?: Record<string, unknown>) => gqlRequest<unknown>(op, t, v));
+  const concurrency =
+    options.fetchConcurrency ?? loadConfig().channelFetchConcurrency;
+
   const aclIds = getAclChannelIdsFromCampaigns(campaigns);
   const byId = new Map<string, Channel>();
 
-  for (const gameName of wantedGames) {
+  const rows = await mapWithConcurrency(wantedGames, concurrency, async (gameName) => {
     const slug = gameNameToSlug(gameName, campaigns);
-    const response = await gqlRequest<unknown>(
-      GQL_OPERATIONS.GameDirectory,
-      token,
-      {
-        slug,
-        limit: 30,
-        sortTypeIsRecency: false,
-        includeCostreaming: false
-      }
-    );
+    const response = await gql(GQL_OPERATIONS.GameDirectory, token, {
+      slug,
+      limit: 30,
+      sortTypeIsRecency: false,
+      includeCostreaming: false
+    });
+    return { gameName, slug, response };
+  });
+
+  for (const { gameName, slug, response } of rows) {
     const resp = response as Json;
     const gqlErrors = resp?.errors as unknown[] | undefined;
     if (gqlErrors?.length) {

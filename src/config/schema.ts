@@ -13,7 +13,9 @@ export const ConfigSchema = z.object({
   trayNotifications: z.boolean().default(true),
   enableBadgesEmotes: z.boolean().default(false),
   availableDropsCheck: z.boolean().default(false),
-  priorityMode: PriorityModeSchema.default("priority_only")
+  priorityMode: PriorityModeSchema.default("priority_only"),
+  /** Max parallel GameDirectory GQL fetches when resolving channels (default 4). */
+  channelFetchConcurrency: z.number().int().min(1).max(10).default(4)
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
