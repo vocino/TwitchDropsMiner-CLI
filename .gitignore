@@ -2,3 +2,33 @@ node_modules/
 # Allow dist/ so pre-built CLI is committed (install has no build step)
 !dist/
 !dist/**
+
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+auth.json
+device.json
+**/auth.json
+**/device.json
+secrets.json
+credentials.json
+token.json
+*.key
+*.pem
+history.db
+history.jsonl
+hooks.json
+**/history.db
+**/history.jsonl
+**/hooks.json
+rules.json
+**/rules.json
+session.json
+lock.file
+npm-debug.log*
+*.tgz
+
+# OS
+.DS_Store
+Thumbs.db
