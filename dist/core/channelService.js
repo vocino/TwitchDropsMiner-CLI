@@ -4,11 +4,8 @@ import { sortChannelCandidates, canWatchChannel } from "../domain/channel.js";
 import { logger } from "./runtime.js";
 import { mapWithConcurrency } from "./concurrency.js";
 import { loadConfig } from "../config/store.js";
-export const MAX_CHANNELS = 100;
-/**
- * Parse Twitch GQL DirectoryPage_Game response into Channel list.
- * Expects structure: data.game.streams.edges[].node with broadcaster(s), viewersCount, game.
- */
+import { MAX_CHANNELS } from "./constants.js";
+export { MAX_CHANNELS };
 export function parseGameDirectoryResponse(response, gameName, aclBased) {
     const data = response?.data;
     const game = data?.game;
@@ -32,9 +29,8 @@ export function parseGameDirectoryResponse(response, gameName, aclBased) {
             continue;
         const viewers = Number(node.viewersCount ?? node.viewerCount ?? 0);
         const gameNode = node.game;
-        const displayGame = gameNode
-            ? String(gameNode.displayName ?? gameNode.name ?? gameName)
-            : gameName;
+        const displayGame = gameNode ? String(gameNode.displayName ?? gameNode.name ?? gameName) : gameName;
+        const gameId = gameNode?.id != null ? String(gameNode.id) : undefined;
         const streamId = node.id != null ? String(node.id) : undefined;
         channels.push({
             id,
@@ -42,6 +38,7 @@ export function parseGameDirectoryResponse(response, gameName, aclBased) {
             online: true,
             viewers: Number.isFinite(viewers) ? viewers : 0,
             gameName: displayGame,
+            gameId,
             dropsEnabled: node.isDropsEnabled === false ? false : true,
             aclBased,
             streamId
@@ -49,20 +46,45 @@ export function parseGameDirectoryResponse(response, gameName, aclBased) {
     }
     return channels;
 }
-/**
- * Build ACL-based channel IDs from campaigns (campaign allowlist / tags if present in GQL).
- * For now campaigns do not expose channel allowlist in our GQL shape; return empty set.
- */
+export function parseSlugRedirectResponse(response) {
+    const data = response?.data;
+    if (!data)
+        return null;
+    const game = data.game;
+    if (!game)
+        return null;
+    const slug = game.slug;
+    if (slug && typeof slug === "string" && slug.length > 0)
+        return slug;
+    return null;
+}
 export function getAclChannelIdsFromCampaigns(_campaigns) {
     const ids = new Set();
-    // When GQL provides campaign channel allowlist, add those ids here.
+    for (const c of _campaigns) {
+        const raw = c?.allowlistChannelIds;
+        if (Array.isArray(raw)) {
+            for (const id of raw)
+                if (typeof id === "string")
+                    ids.add(id);
+        }
+    }
     return ids;
 }
-/**
- * Resolve game name to Twitch directory slug (from campaigns when available).
- */
-function gameNameToSlug(gameName, campaigns) {
+export async function resolveGameSlug(gameName, campaigns, token, gql, options) {
     const c = campaigns.find((camp) => camp.gameName === gameName);
+    if (options?.resolveSlugs === false)
+        return c ? c.gameSlug : gameName.toLowerCase().replace(/\s+/g, "-");
+    try {
+        const resp = await gql(GQL_OPERATIONS.SlugRedirect, token, { name: gameName });
+        const slug = parseSlugRedirectResponse(resp);
+        if (slug) {
+            logger.debug({ gameName, slug }, "Resolved game slug via SlugRedirect");
+            return slug;
+        }
+    }
+    catch (err) {
+        logger.debug({ err, gameName }, "SlugRedirect failed, using fallback slug");
+    }
     return c ? c.gameSlug : gameName.toLowerCase().replace(/\s+/g, "-");
 }
 export async function fetchChannelsForWantedGames(token, options) {
@@ -70,36 +92,42 @@ export async function fetchChannelsForWantedGames(token, options) {
     const gql = options.gqlRequestImpl ??
         ((op, t, v) => gqlRequest(op, t, v));
     const concurrency = options.fetchConcurrency ?? loadConfig().channelFetchConcurrency;
+    const shouldResolveSlugs = options.resolveSlugs !== false;
     const aclIds = getAclChannelIdsFromCampaigns(campaigns);
     const byId = new Map();
     const rows = await mapWithConcurrency(wantedGames, concurrency, async (gameName) => {
-        const slug = gameNameToSlug(gameName, campaigns);
+        const slug = await resolveGameSlug(gameName, campaigns, token, gql, { resolveSlugs: shouldResolveSlugs });
         const response = await gql(GQL_OPERATIONS.GameDirectory, token, {
             slug,
             limit: 30,
-            sortTypeIsRecency: false,
-            includeCostreaming: false
+            imageWidth: 50,
+            includeCostreaming: false,
+            options: {
+                broadcasterLanguages: [],
+                freeformTags: null,
+                includeRestricted: ["SUB_ONLY_LIVE"],
+                recommendationsContext: { platform: "web" },
+                sort: "RELEVANCE",
+                systemFilters: [],
+                tags: [],
+                requestID: "JIRA-VXP-2397"
+            },
+            sortTypeIsRecency: false
         });
         return { gameName, slug, response };
     });
     for (const { gameName, slug, response } of rows) {
         const resp = response;
         const gqlErrors = resp?.errors;
-        if (gqlErrors?.length) {
+        if (gqlErrors?.length)
             logger.warn({ gameName, slug, gqlErrors }, "GameDirectory GQL errors");
-        }
-        const aclBased = false;
-        const list = parseGameDirectoryResponse(response, gameName, aclBased);
+        const list = parseGameDirectoryResponse(response, gameName, false);
         for (const ch of list) {
             const existing = byId.get(ch.id);
             const acl = aclIds.has(ch.id);
-            const merged = {
-                ...ch,
-                aclBased: existing?.aclBased ?? acl
-            };
-            if (!existing || merged.viewers > existing.viewers) {
+            const merged = { ...ch, aclBased: (existing?.aclBased || ch.aclBased || acl) };
+            if (!existing || merged.viewers > existing.viewers)
                 byId.set(ch.id, merged);
-            }
         }
     }
     let result = Array.from(byId.values());

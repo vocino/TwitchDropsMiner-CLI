@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildSpadePayload } from "../../integrations/twitchSpade.js";
-const SPADE_PATTERN = /"(?:beacon|spade)_?url":\s*"(https:\/\/[.\w\-/]+\.ts(?:\?allow_stream=true)?)"/i;
+import { buildSpadePayload, buildSpadeGqlPayload } from "../../integrations/twitchSpade.js";
+const SPADE_PATTERN = /"(?:beacon|spade)_?url":\s*"(https:\/\/[.\\w\-/]+\.ts(?:\?allow_stream=true)?)"/i;
 test("buildSpadePayload returns base64 data with minute-watched event", () => {
     const out = buildSpadePayload("12345", "67890", "streamer", "user1");
     assert.ok(out.data);
@@ -16,7 +16,26 @@ test("buildSpadePayload returns base64 data with minute-watched event", () => {
     assert.equal(payload[0]?.properties?.live, true);
     assert.equal(payload[0]?.properties?.player, "site");
 });
+test("buildSpadePayload includes upstream parity fields game, game_id, client_time, is_live, minutes_logged", () => {
+    const out = buildSpadePayload("123", "456", "chan", "u1", { gameName: "WoW", gameId: "12345" });
+    const decoded = Buffer.from(out.data, "base64").toString("utf8");
+    const payload = JSON.parse(decoded);
+    const props = payload[0]?.properties;
+    assert.equal(props?.game, "WoW");
+    assert.equal(props?.game_id, "12345");
+    assert.equal(props?.is_live, true);
+    assert.equal(props?.minutes_logged, 1);
+    assert.ok(typeof props?.client_time === "string" && props.client_time.length > 0);
+    // ISO parseable
+    assert.ok(!isNaN(new Date(props.client_time).getTime()));
+});
+test("buildSpadeGqlPayload produces gzip b64 for mutation fallback", () => {
+    const out = buildSpadeGqlPayload("b123", "c456", "chan", "u1", { gameName: "Game", gameId: "1" });
+    assert.ok(out.encodedData.length > 0);
+    assert.ok(out.query.includes("SendEvents"));
+});
 test("spade URL regex extracts URL from synthetic HTML", () => {
+    const SPADE_PATTERN = /"(?:beacon|spade)_?url":\s*"(https:\/\/[.\w\-/]+\.ts(?:\?allow_stream=true)?)"/i;
     const html = '"beacon_url": "https://spade.example.com/v1/beacon.ts?allow_stream=true"';
     const match = html.match(SPADE_PATTERN);
     assert.ok(match);

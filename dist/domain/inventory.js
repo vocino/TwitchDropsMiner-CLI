@@ -122,8 +122,17 @@ export class TimedDrop {
         }
         return Number.POSITIVE_INFINITY;
     }
+    get preconditionsMet() {
+        for (const pid of this.preconditionDropIds) {
+            const pre = this.campaign.timedDrops.get(pid);
+            if (!pre || !pre.isClaimed)
+                return false;
+        }
+        return true;
+    }
     baseEarnConditions() {
         return (!this.claimed &&
+            this.preconditionsMet &&
             (this.benefits.length > 0 || this.campaign.preconditionsChain().has(this.id)) &&
             this.requiredMinutes > 0 &&
             this.extraCurrentMinutes < MAX_EXTRA_MINUTES);
@@ -135,6 +144,7 @@ export class TimedDrop {
             this.campaign.baseCanEarn());
     }
     canEarnWithin(stamp) {
+        // Mirrors DevilXD: _base_earn_conditions + ends_at > now + starts_at < stamp (no eligible/active check here, campaign does that)
         return (this.baseEarnConditions() &&
             this.endsAt.getTime() > Date.now() &&
             this.startsAt.getTime() < stamp.getTime());

@@ -1,4 +1,4 @@
-import { request } from "undici";
+import { request, ProxyAgent } from "undici";
 const DEFAULT_TIMEOUT_MS = 30_000;
 function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
@@ -52,10 +52,37 @@ export class HttpResponseError extends Error {
         this.bodySnippet = bodySnippet;
     }
 }
+export class CaptchaRequiredError extends Error {
+    constructor(message = "Captcha is required to continue. Complete login manually or retry with fresh OAuth device flow.") {
+        super(message);
+        this.name = "CaptchaRequiredError";
+    }
+}
+function detectCaptcha(body, status) {
+    if (status === 429)
+        return false;
+    const lower = body.toLowerCase();
+    return (lower.includes("captcha") ||
+        lower.includes("cf_challenge") ||
+        lower.includes("clientsidechallenge") ||
+        lower.includes("please complete a captcha") ||
+        /error_code.*50(23|27)/.test(lower));
+}
+function getProxyDispatcher(proxyUrl) {
+    if (!proxyUrl)
+        return undefined;
+    try {
+        return new ProxyAgent(proxyUrl);
+    }
+    catch {
+        return undefined;
+    }
+}
 export async function httpJson(method, url, body, options) {
     const retries = options?.retries ?? 3;
     const retryDelayMs = options?.retryDelayMs ?? 1_000;
     const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    const proxyDispatcher = options?.proxy ? getProxyDispatcher(options.proxy) : undefined;
     let lastError;
     for (let attempt = 0; attempt <= retries; attempt += 1) {
         try {
@@ -67,9 +94,13 @@ export async function httpJson(method, url, body, options) {
                     ...(options?.headers ?? {})
                 },
                 body: body !== undefined ? JSON.stringify(body) : undefined,
-                signal
+                signal,
+                dispatcher: proxyDispatcher
             });
             const text = await response.body.text();
+            if (detectCaptcha(text, response.statusCode)) {
+                throw new CaptchaRequiredError(`Captcha detected on ${url}: ${text.slice(0, 300)}`);
+            }
             if (response.statusCode >= 200 && response.statusCode < 300) {
                 if (!text) {
                     return {};
@@ -89,6 +120,8 @@ export async function httpJson(method, url, body, options) {
             throw new HttpResponseError(response.statusCode, text);
         }
         catch (err) {
+            if (err instanceof CaptchaRequiredError)
+                throw err;
             lastError = err;
             if (err instanceof HttpResponseError) {
                 throw err;

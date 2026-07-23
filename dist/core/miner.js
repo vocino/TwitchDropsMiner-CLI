@@ -12,7 +12,7 @@ import { logger } from "./runtime.js";
 import { buildInventoryFromGqlResponses } from "../domain/inventory.js";
 import { loadConfig } from "../config/store.js";
 import { TwitchPubSub } from "../integrations/twitchPubSub.js";
-import { WS_TOPICS_LIMIT } from "./constants.js";
+import { MAX_CHANNELS } from "./constants.js";
 export class Miner {
     state = new StateMachine();
     watchLoop = new WatchLoop();
@@ -219,14 +219,28 @@ export class Miner {
             `user-drop-events.${this.userId}`,
             `onsite-notifications.${this.userId}`
         ];
+        // Use pool-aware channel topics: up to MAX_CHANNELS channels, 1 topic per channel for now (video-playback).
+        // Optional broadcast-settings-update included via config (future). Pool handles sharding across 8 websockets.
+        const sliceCap = MAX_CHANNELS; // 199 — pool will handle 50 per socket
         const channelTopics = this.channels
-            .slice(0, Math.max(0, WS_TOPICS_LIMIT - userTopics.length))
+            .slice(0, Math.max(0, sliceCap))
             .map((ch) => `video-playback-by-id.${ch.id}`);
+        // Register handlers for stream state changes
         for (const topic of channelTopics) {
             this.pubsub.registerTopic(topic, () => {
                 logger.debug("Stream state update, requesting channels cleanup");
                 this.state.setState("CHANNELS_CLEANUP");
             });
+        }
+        // Also handle broadcast-settings-update if we ever subscribe to them
+        for (const ch of this.channels.slice(0, sliceCap)) {
+            const t = `broadcast-settings-update.${ch.id}`;
+            if (!this.pubsub.getSubscribedTopics().includes(t)) {
+                this.pubsub.registerTopic(t, () => {
+                    logger.debug({ channelId: ch.id }, "Broadcast settings update, requesting channels cleanup");
+                    this.state.setState("CHANNELS_CLEANUP");
+                });
+            }
         }
         this.pubsub.listen(userTopics, token);
         if (channelTopics.length > 0) {
@@ -358,7 +372,7 @@ export class Miner {
         this.channels = await fetchChannelsForWantedGames(token, {
             wantedGames: this.wantedGames,
             campaigns: this.campaigns,
-            maxChannels: 100
+            maxChannels: MAX_CHANNELS
         });
         logger.info({ count: this.channels.length, wantedGames: this.wantedGames }, "Fetched channels");
     }
