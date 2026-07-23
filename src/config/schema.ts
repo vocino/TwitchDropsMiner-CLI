@@ -14,13 +14,20 @@ export const ConfigSchema = z.object({
   enableBadgesEmotes: z.boolean().default(false),
   availableDropsCheck: z.boolean().default(false),
   priorityMode: PriorityModeSchema.default("priority_only"),
-  /** Max parallel GameDirectory GQL fetches when resolving channels (default 4). */
   channelFetchConcurrency: z.number().int().min(1).max(10).default(4),
-  /** Override persisted-query sha256 hashes when Twitch rotates them (operationName -> hash). */
-  gqlHashOverrides: z.record(z.string(), z.string()).default({})
+  gqlHashOverrides: z.record(z.string(), z.string()).default({}),
+  webhooks: z
+    .object({
+      onClaim: z.string().default(""),
+      onProgress: z.string().default(""),
+      onChannelSwitch: z.string().default(""),
+      onError: z.string().default("")
+    })
+    .default({ onClaim: "", onProgress: "", onChannelSwitch: "", onError: "" }),
+  sleepMode: z.boolean().default(true),
+  exportFormat: z.enum(["json", "csv", "prometheus"]).default("json")
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
 
 export const DEFAULT_CONFIG: Config = ConfigSchema.parse({});
-

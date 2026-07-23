@@ -15,6 +15,7 @@ import { TwitchPubSub } from "../integrations/twitchPubSub.js";
 import { MAX_CHANNELS } from "./constants.js";
 import { recordTick } from "../ops/history.js";
 import { metricsRegistry } from "../ops/metrics.js";
+import { dispatchHook } from "../ops/webhooks.js";
 
 export class Miner {
   private state = new StateMachine();
@@ -112,9 +113,15 @@ export class Miner {
             game: this.watchingChannel.gameName ?? "unknown",
             minutesTotal: minutesForGame
           });
+          void dispatchHook("watch_tick", {
+            game: this.watchingChannel.gameName ?? "unknown",
+            channelLogin: this.watchingChannel.login,
+            channelId: this.watchingChannel.id
+          });
         } else {
           logger.warn(`Watch tick failed for channel ${this.watchingChannel.login}`);
           metricsRegistry.incWatchError();
+          void dispatchHook("error", { message: `Watch tick failed for ${this.watchingChannel.login}`, channelLogin: this.watchingChannel.login });
         }
       }
       saveSessionState({
@@ -203,8 +210,17 @@ export class Miner {
           drop.markClaimed();
           logger.info({ dropId: drop.id, instanceId: drop.dropInstanceId }, "Claimed drop");
           metricsRegistry.incClaimed(1);
+          void dispatchHook("claim", {
+            game: campaign.gameName,
+            dropName: drop.name,
+            dropId: drop.id,
+            channelLogin: this.watchingChannel?.login,
+            channelId: this.watchingChannel?.id,
+            data: { campaignId: campaign.id, instanceId: drop.dropInstanceId }
+          });
         } catch (err) {
           logger.warn({ err, dropId: drop.id }, "Claim drop failed");
+          void dispatchHook("error", { message: `Claim failed for ${drop.name}`, data: { dropId: drop.id } });
         }
       }
     }
@@ -452,6 +468,21 @@ export class Miner {
       this.channels = [];
       return;
     }
+    // sleep mode: when only 1 earnable campaign, reduce log spam, but still fetch
+    const cfg = this.config ?? loadConfig();
+    if (cfg.sleepMode && this.campaigns.length > 0) {
+      const nextHour = new Date(Date.now() + 60 * 60 * 1000);
+      const earnable = this.campaigns.filter((c) => c.canEarnWithin(nextHour));
+      if (earnable.length <= 1 && this.channels.length > 0) {
+        // keep existing channels if recent, skip fetch 4 out of 5 times to save API
+        const skip = Math.random() < 0.8;
+        if (skip) {
+          logger.debug("Sleep mode: keeping existing channels to save API");
+          return;
+        }
+      }
+    }
+
     this.channels = await fetchChannelsForWantedGames(token, {
       wantedGames: this.wantedGames,
       campaigns: this.campaigns,
@@ -465,9 +496,19 @@ export class Miner {
       canWatchChannel(ch, this.wantedGames)
     );
     const best = candidates[0] ?? null;
+    const prev = this.watchingChannel?.login;
     if (best && shouldSwitchChannel(this.watchingChannel, best, this.wantedGames)) {
       this.watchingChannel = best;
       logger.info(`Watching channel: ${this.watchingChannel.login}`);
+      if (prev && prev !== best.login) {
+        void dispatchHook("channel_switch", {
+          game: best.gameName ?? "unknown",
+          channelLogin: best.login,
+          channelId: best.id,
+          message: `Switched from ${prev} to ${best.login}`,
+          data: { prevChannel: prev, newChannel: best.login }
+        });
+      }
     } else if (!this.watchingChannel && best) {
       this.watchingChannel = best;
       logger.info(`Watching channel: ${this.watchingChannel.login}`);

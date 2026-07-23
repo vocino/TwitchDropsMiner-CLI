@@ -14,6 +14,7 @@ import { historyCommand } from "./commands/history.js";
 import { metricsCommand } from "./commands/metrics.js";
 import { watchCommand } from "./commands/watch.js";
 import { dropsCommand } from "./commands/drops.js";
+import { hooksCommand, exportCommand } from "./commands/homelab.js";
 import { ensureSingleInstanceLock } from "../core/runtime.js";
 const program = new Command();
 const require = createRequire(import.meta.url);
@@ -40,6 +41,8 @@ program.addCommand(historyCommand);
 program.addCommand(metricsCommand);
 program.addCommand(watchCommand);
 program.addCommand(dropsCommand);
+program.addCommand(hooksCommand);
+program.addCommand(exportCommand);
 program.parseAsync().catch((err) => {
     // eslint-disable-next-line no-console
     console.error("Fatal error:", err);
