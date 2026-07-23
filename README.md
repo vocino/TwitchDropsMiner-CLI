@@ -4,6 +4,8 @@ Headless, npm-installable CLI rewrite of [TwitchDropsMiner](https://github.com/D
 
 **Based on:** [DevilXD/TwitchDropsMiner](https://github.com/DevilXD/TwitchDropsMiner) — the original Python/GUI app that AFK mines timed Twitch drops with automatic claiming and channel switching. This CLI reimplements the same behavior (GQL, spade, PubSub, priority lists) for headless and server use.
 
+**Parity:** As of Phase 6 (2026-07-23), CLI achieves upstream parity: 11 GQL ops (GameDirectory hash synced 76cb06->86bcce + SlugRedirect, PlaybackAccessToken, GetStreamInfo, AvailableDrops, CampaignDetails), MAX_CHANNELS 199 (8x50 pool), broadcast-settings-update topics, precondition chain-aware inventory, full spade payload (game, game_id, client_time, is_live, minutes_logged), device cache (X-Device-Id), proxy + CaptchaRequired hardening, rich status/doctor. See `docs/parity.md`.
+
 ## Install
 
 **Global install from npm** (recommended; puts `tdm` on your PATH):

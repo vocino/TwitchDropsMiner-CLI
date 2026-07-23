@@ -24,6 +24,7 @@ function sessionImpliesRunning(
 export const statusCommand = new Command("status")
   .description("Show current miner status")
   .option("--json", "Output status as JSON")
+  .option("--verbose", "Verbose output (shows session file path, device id)", false)
   .action(async (opts) => {
     const session = loadSessionState();
     const rawState = session?.state ?? "UNKNOWN";
@@ -42,17 +43,29 @@ export const statusCommand = new Command("status")
       state: highLevel,
       rawState,
       watchedChannel: session?.watchedChannelName ?? null,
-      activeDrop: session?.activeDropId ?? null
+      watchedChannelId: (session as any)?.watchedChannelId ?? null,
+      activeDrop: session?.activeDropId ?? null,
+      updatedAt: session?.updatedAt ?? null,
+      sessionAgeMs: session?.updatedAt ? Date.now() - new Date(session.updatedAt).getTime() : null,
+      stale: session?.updatedAt ? Date.now() - new Date(session.updatedAt).getTime() > SESSION_FRESH_MS : null,
+      parity: {
+        maxChannels: 199,
+        maxWebsockets: 8,
+        pool: "8x50 sharded"
+      }
     };
 
     if (opts.json) {
       // eslint-disable-next-line no-console
-      console.log(JSON.stringify(status));
+      console.log(JSON.stringify(status, null, 2));
     } else {
+      const v = opts.verbose ? " (verbose)" : "";
       // eslint-disable-next-line no-console
       console.log(
-        `Running=${status.running}, lock=${status.lockHeld}, state=${status.state}, channel=${status.watchedChannel ?? "-"}, activeDrop=${status.activeDrop ?? "-"}`
+        `Running=${status.running}, lock=${status.lockHeld}, state=${status.state}, channel=${status.watchedChannel ?? "-"} (id=${status.watchedChannelId ?? "-"}), activeDrop=${status.activeDrop ?? "-"}, updated=${status.updatedAt ?? "-"}${v}`
       );
+      // eslint-disable-next-line no-console
+      console.log(`Parity: MAX_CHANNELS=199 pool=8x50 GQL=11 ops spade=upstream-aligned`);
     }
   });
 
