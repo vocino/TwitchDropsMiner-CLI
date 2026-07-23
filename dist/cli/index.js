@@ -10,6 +10,10 @@ import { doctorCommand } from "./commands/doctor.js";
 import { healthcheckCommand } from "./commands/healthcheck.js";
 import { serviceCommand } from "./commands/service.js";
 import { logsCommand } from "./commands/logs.js";
+import { historyCommand } from "./commands/history.js";
+import { metricsCommand } from "./commands/metrics.js";
+import { watchCommand } from "./commands/watch.js";
+import { dropsCommand } from "./commands/drops.js";
 import { ensureSingleInstanceLock } from "../core/runtime.js";
 const program = new Command();
 const require = createRequire(import.meta.url);
@@ -32,6 +36,10 @@ program.addCommand(doctorCommand);
 program.addCommand(healthcheckCommand);
 program.addCommand(serviceCommand);
 program.addCommand(logsCommand);
+program.addCommand(historyCommand);
+program.addCommand(metricsCommand);
+program.addCommand(watchCommand);
+program.addCommand(dropsCommand);
 program.parseAsync().catch((err) => {
     // eslint-disable-next-line no-console
     console.error("Fatal error:", err);
