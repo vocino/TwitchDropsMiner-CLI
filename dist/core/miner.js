@@ -120,6 +120,16 @@ export class Miner {
                 this.lastInventoryFetchHour = currentHour;
                 this.state.setState("INVENTORY_FETCH");
             }
+            // Also refresh every 5 min if any drop is claimable in memory but not yet claimed
+            // (safety net for missed PubSub)
+            const currentMinute = Math.floor(now / (60 * 1000));
+            if (currentMinute % 5 === 0) {
+                const hasClaimable = this.campaigns.some((c) => c.drops.some((d) => d.canClaim));
+                if (hasClaimable) {
+                    logger.info("Maintenance: found claimable drops, triggering inventory+claim");
+                    this.state.setState("INVENTORY_FETCH");
+                }
+            }
             const pastTriggers = this.timeTriggers.filter((d) => {
                 const t = d.getTime();
                 return t > now - 60 * 1000 && t <= now;
@@ -232,6 +242,34 @@ export class Miner {
                     if (drop) {
                         drop.updateMinutes(minutes);
                         logger.debug({ instanceId, minutes }, "Drop progress from PubSub");
+                        // If progress now completes the drop, try claim immediately (like upstream) instead of waiting hourly
+                        if (drop.canClaim && drop.dropInstanceId) {
+                            logger.info({ instanceId, dropName: drop.name }, "Drop progress complete — claiming immediately via PubSub trigger");
+                            // Fire async claim — don't block PubSub handler
+                            void (async () => {
+                                try {
+                                    await gqlRequest(GQL_OPERATIONS.ClaimDrop, token, {
+                                        input: { dropInstanceID: drop.dropInstanceId }
+                                    });
+                                    drop.markClaimed();
+                                    logger.info({ instanceId, dropName: drop.name }, "Claimed drop via PubSub progress");
+                                    metricsRegistry.incClaimed(1);
+                                    void dispatchHook("claim", {
+                                        game: drop.campaign.gameName,
+                                        dropName: drop.name,
+                                        dropId: drop.id,
+                                        channelLogin: this.watchingChannel?.login,
+                                        channelId: this.watchingChannel?.id,
+                                        data: { campaignId: drop.campaign.id, instanceId }
+                                    });
+                                    // Refresh inventory soon to get next drop in chain
+                                    this.state.setState("INVENTORY_FETCH");
+                                }
+                                catch (err) {
+                                    logger.warn({ err, instanceId }, "Claim via PubSub progress failed, will retry on next inventory fetch");
+                                }
+                            })();
+                        }
                     }
                 }
             }
