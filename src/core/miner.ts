@@ -12,7 +12,7 @@ import { logger } from "./runtime.js";
 import { buildInventoryFromGqlResponses, DropsCampaign, TimedDrop } from "../domain/inventory.js";
 import { loadConfig } from "../config/store.js";
 import { TwitchPubSub } from "../integrations/twitchPubSub.js";
-import { WS_TOPICS_LIMIT } from "./constants.js";
+import { WS_TOPICS_LIMIT, MAX_CHANNELS } from "./constants.js";
 
 export class Miner {
   private state = new StateMachine();
@@ -401,7 +401,7 @@ export class Miner {
     this.channels = await fetchChannelsForWantedGames(token, {
       wantedGames: this.wantedGames,
       campaigns: this.campaigns,
-      maxChannels: 100
+      maxChannels: MAX_CHANNELS
     });
     logger.info({ count: this.channels.length, wantedGames: this.wantedGames }, "Fetched channels");
   }

@@ -11,3 +11,4 @@ import "./unit/twitchSpade.test.js";
 import "./integration/configStore.test.js";
 import "./parity/stateMachineFlow.test.js";
 
+import "./unit/gqlOperations.test.js";
