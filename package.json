@@ -23,7 +23,7 @@
   "engines": {
     "node": ">=20.0.0"
   },
-  "author": "",
+  "author": "Travis Vocino <travis@vocino.com> (https://github.com/vocino)",
   "license": "MIT",
   "dependencies": {
     "@commander-js/extra-typings": "^12.1.0",
