@@ -2,6 +2,7 @@ import { httpJson } from "./httpClient.js";
 import { TWITCH_GQL_URL, TWITCH_ANDROID_CLIENT_ID, TWITCH_ANDROID_USER_AGENT } from "../core/constants.js";
 import { GqlOperation, gqlPayload, applyGqlHashOverride } from "./gqlOperations.js";
 import { loadConfig } from "../config/store.js";
+import { deviceHeaders } from "../state/deviceStore.js";
 
 export class GqlPersistedQueryMismatchError extends Error {
   readonly operationName: string;
@@ -57,12 +58,15 @@ export async function gqlRequest<T = unknown>(
 ): Promise<T> {
   const cfg = loadConfig();
   const resolved = applyGqlHashOverride(operation, cfg.gqlHashOverrides);
+  const dHeaders = deviceHeaders();
   const payload = await httpJson<T>("POST", TWITCH_GQL_URL, gqlPayload(resolved, variables), {
     retries: 3,
+    proxy: cfg.proxy || undefined,
     headers: {
       "Client-Id": TWITCH_ANDROID_CLIENT_ID,
       "User-Agent": TWITCH_ANDROID_USER_AGENT,
-      Authorization: `OAuth ${accessToken}`
+      Authorization: `OAuth ${accessToken}`,
+      ...dHeaders
     }
   });
   assertNoGqlPersistedQueryFailure(resolved, payload as unknown);
