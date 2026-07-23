@@ -16,6 +16,8 @@ import { metricsCommand } from "./commands/metrics.js";
 import { watchCommand } from "./commands/watch.js";
 import { dropsCommand } from "./commands/drops.js";
 import { hooksCommand, exportCommand } from "./commands/homelab.js";
+import { calendarCommand, optimizeCommand, simulateCommand } from "./commands/strategy.js";
+import { rulesCommand } from "./commands/rules.js";
 import { ensureSingleInstanceLock } from "../core/runtime.js";
 
 const program = new Command();
@@ -48,6 +50,10 @@ program.addCommand(watchCommand);
 program.addCommand(dropsCommand);
 program.addCommand(hooksCommand);
 program.addCommand(exportCommand);
+program.addCommand(calendarCommand);
+program.addCommand(optimizeCommand);
+program.addCommand(simulateCommand);
+program.addCommand(rulesCommand);
 
 program.parseAsync().catch((err) => {
   // eslint-disable-next-line no-console
