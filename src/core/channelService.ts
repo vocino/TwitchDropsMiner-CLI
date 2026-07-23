@@ -37,6 +37,7 @@ export function parseGameDirectoryResponse(
     const viewers = Number(node.viewersCount ?? node.viewerCount ?? 0);
     const gameNode = node.game as Json | undefined;
     const displayGame = gameNode ? String(gameNode.displayName ?? gameNode.name ?? gameName) : gameName;
+    const gameId = gameNode?.id != null ? String(gameNode.id) : undefined;
     const streamId = node.id != null ? String(node.id) : undefined;
     channels.push({
       id,
@@ -44,6 +45,7 @@ export function parseGameDirectoryResponse(
       online: true,
       viewers: Number.isFinite(viewers) ? viewers : 0,
       gameName: displayGame,
+      gameId,
       dropsEnabled: node.isDropsEnabled === false ? false : true,
       aclBased,
       streamId

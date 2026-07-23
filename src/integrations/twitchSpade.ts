@@ -20,17 +20,34 @@ export interface SpadePayload {
     muted: boolean;
     player: string;
     user_id: string;
+    // Additional fields from DevilXD upstream for higher fidelity
+    client_time?: string;
+    game?: string;
+    game_id?: string;
+    is_live?: boolean;
+    minutes_logged?: number;
   };
+}
+
+/** Return ISO-like client_time similar to upstream isonow() */
+function isoNow(): string {
+  return new Date().toISOString();
+}
+
+function jsonMinify(obj: unknown): string {
+  return JSON.stringify(obj);
 }
 
 /**
  * Build minute-watched payload and return { data: base64(json) } as sent by Twitch web.
+ * Includes full upstream fields: game, game_id, client_time, is_live, minutes_logged
  */
 export function buildSpadePayload(
   broadcastId: string,
   channelId: string,
   channelLogin: string,
-  userId: string
+  userId: string,
+  opts?: { gameName?: string; gameId?: string }
 ): { data: string } {
   const payload: SpadePayload[] = [
     {
@@ -45,13 +62,64 @@ export function buildSpadePayload(
         logged_in: true,
         muted: false,
         player: "site",
+        user_id: userId,
+        client_time: isoNow(),
+        game: opts?.gameName ?? "",
+        game_id: opts?.gameId ?? "",
+        is_live: true,
+        minutes_logged: 1
+      }
+    }
+  ];
+  const data = Buffer.from(jsonMinify(payload), "utf8").toString("base64");
+  return { data };
+}
+
+/**
+ * Build compressed gzip+base64 GQL payload variant used for more reliable watch beacons
+ * (mirrors DevilXD channel.py gql_payload). Returns raw b64 gzip data for SendSpadeEvents mutation.
+ */
+export function buildSpadeGqlPayload(
+  broadcastId: string,
+  channelId: string,
+  channelLogin: string,
+  userId: string,
+  opts?: { gameName?: string; gameId?: string }
+): { query: string; encodedData: string } {
+  const watchPayload = [
+    {
+      event: "minute-watched",
+      properties: {
+        broadcast_id: broadcastId,
+        channel_id: channelId,
+        channel: channelLogin,
+        client_time: isoNow(),
+        game: opts?.gameName ?? "",
+        game_id: opts?.gameId ?? "",
+        hidden: false,
+        is_live: true,
+        live: true,
+        location: "channel",
+        logged_in: true,
+        minutes_logged: 1,
+        muted: false,
         user_id: userId
       }
     }
   ];
-  const json = JSON.stringify(payload);
-  const data = Buffer.from(json, "utf8").toString("base64");
-  return { data };
+  const json = jsonMinify(watchPayload);
+  // gzip compress if available (node), fallback to plain b64
+  let encodedData: string;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const zlib = require("zlib") as { gzipSync: (buf: Buffer) => Buffer };
+    const gz = zlib.gzipSync(Buffer.from(json, "utf8"));
+    encodedData = gz.toString("base64");
+  } catch {
+    encodedData = Buffer.from(json, "utf8").toString("base64");
+  }
+  const query = "\n mutation SendEvents($input: SendSpadeEventsInput!) {\n sendSpadeEvents(input: $input) {\n statusCode\n}\n}\n";
+  return { query, encodedData };
 }
 
 /**
@@ -128,15 +196,13 @@ export async function sendChannelWatch(
   channel: Channel,
   userId: string,
   accessToken: string,
-  options?: { spadeUrlCache?: Map<string, string> }
+  options?: { spadeUrlCache?: Map<string, string>; gameId?: string }
 ): Promise<boolean> {
   const broadcastId = channel.streamId ?? channel.id;
-  const payload = buildSpadePayload(
-    broadcastId,
-    channel.id,
-    channel.login,
-    userId
-  );
+  const payload = buildSpadePayload(broadcastId, channel.id, channel.login, userId, {
+    gameName: channel.gameName,
+    gameId: options?.gameId ?? channel.gameId ?? ""
+  });
 
   const cache = options?.spadeUrlCache;
   let url = cache?.get(channel.login);
@@ -153,5 +219,34 @@ export async function sendChannelWatch(
     return await sendSpadePost(url, payload, accessToken);
   } catch {
     return false;
+  }
+}
+
+/**
+ * Fetch real broadcast_id via GetStreamInfo GQL (playback) for higher fidelity spade beacons.
+ * Returns stream id string if available, null otherwise.
+ */
+export async function fetchStreamIdViaGql(
+  channelLogin: string,
+  token: string,
+  gqlRequestImpl: (op: { operationName: string; sha256Hash: string; variables: Record<string, unknown> }, token: string, vars?: Record<string, unknown>) => Promise<unknown>
+): Promise<string | null> {
+  try {
+    const resp = (await gqlRequestImpl(
+      {
+        operationName: "VideoPlayerStreamInfoOverlayChannel",
+        sha256Hash: "198492e0857f6aedead9665c81c5a06d67b25b58034649687124083ff288597d",
+        variables: { channel: channelLogin }
+      },
+      token,
+      { channel: channelLogin }
+    )) as Record<string, unknown>;
+    const data = (resp as any)?.data as Record<string, unknown> | undefined;
+    const user = (data?.user as Record<string, unknown> | undefined) ?? (data?.userLogin as Record<string, unknown> | undefined);
+    const stream = (user?.stream as Record<string, unknown> | undefined) ?? (data?.stream as Record<string, unknown> | undefined);
+    const id = stream?.id as string | undefined;
+    return id ? String(id) : null;
+  } catch {
+    return null;
   }
 }

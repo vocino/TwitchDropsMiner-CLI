@@ -4,6 +4,7 @@ export interface Channel {
   online: boolean;
   viewers: number;
   gameName?: string;
+  gameId?: string;
   dropsEnabled?: boolean;
   aclBased?: boolean;
   /** Stream/broadcast ID for spade minute-watched payload (from directory or GetStream). */
