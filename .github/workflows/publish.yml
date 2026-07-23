@@ -21,4 +21,24 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm test
-      - run: npm publish --provenance --access public
+      - name: Check if version already published
+        id: check
+        run: |
+          VER=$(node -p "require('./package.json').version")
+          PUB=$(npm view twitchdropsminer-cli version 2>/dev/null || echo "0.0.0")
+          echo "local=$VER published=$PUB"
+          if [ "$VER" = "$PUB" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "Version $VER already published, skipping"
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+      - name: Publish
+        if: steps.check.outputs.skip == 'false'
+        run: |
+          # Try OIDC trusted publishing first, fallback to error message
+          npm publish --provenance --access public || {
+            echo "::error::npm publish failed. If trusted publishing not configured, add NPM_TOKEN secret or set up trusted publisher at https://www.npmjs.com/package/twitchdropsminer-cli/access"
+            echo "To fix: npmjs.com → package → Settings → Trusted Publishers → add GitHub repo vocino/TwitchDropsMiner-CLI workflow publish.yml"
+            exit 1
+          }
