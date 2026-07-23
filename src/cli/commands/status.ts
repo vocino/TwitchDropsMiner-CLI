@@ -1,6 +1,8 @@
 import { Command } from "@commander-js/extra-typings";
 import { loadSessionState } from "../../state/sessionState.js";
 import { isMinerLockHeldByLiveProcess } from "../../core/runtime.js";
+import { getHistoryPaths, summarizeHistory } from "../../ops/history.js";
+import { getMetricsJSON } from "../../ops/metrics.js";
 
 const SESSION_FRESH_MS = 120_000;
 
@@ -37,6 +39,20 @@ export const statusCommand = new Command("status")
     const lockHeld = isMinerLockHeldByLiveProcess();
     const running =
       lockHeld || sessionImpliesRunning(rawState, session?.updatedAt);
+
+    let historySummary: ReturnType<typeof summarizeHistory> | null = null;
+    let metrics: ReturnType<typeof getMetricsJSON> | null = null;
+    let paths: ReturnType<typeof getHistoryPaths> | null = null;
+    try {
+      paths = getHistoryPaths();
+    } catch {}
+    try {
+      historySummary = summarizeHistory();
+    } catch {}
+    try {
+      metrics = getMetricsJSON();
+    } catch {}
+
     const status = {
       running,
       lockHeld,
@@ -52,6 +68,11 @@ export const statusCommand = new Command("status")
         maxChannels: 199,
         maxWebsockets: 8,
         pool: "8x50 sharded"
+      },
+      observability: {
+        history: historySummary,
+        metrics: metrics ? { version: (metrics as any).version, uptimeSeconds: (metrics as any).uptimeSeconds, minutesPerGame: (metrics as any).minutesPerGame } : null,
+        paths
       }
     };
 
@@ -66,6 +87,15 @@ export const statusCommand = new Command("status")
       );
       // eslint-disable-next-line no-console
       console.log(`Parity: MAX_CHANNELS=199 pool=8x50 GQL=11 ops spade=upstream-aligned`);
+      if (historySummary) {
+        // eslint-disable-next-line no-console
+        console.log(
+          `History: backend=${paths?.backend ?? "?"} totalTicks=${historySummary.totalTicks} from=${historySummary.fromTs ?? "-"} to=${historySummary.toTs ?? "-"}`
+        );
+      }
+      if (metrics) {
+        // eslint-disable-next-line no-console
+        console.log(`Metrics: uptime=${(metrics as any).uptimeSeconds ?? 0}s version=${(metrics as any).version ?? "?"}`);
+      }
     }
   });
-

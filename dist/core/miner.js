@@ -13,6 +13,8 @@ import { buildInventoryFromGqlResponses } from "../domain/inventory.js";
 import { loadConfig } from "../config/store.js";
 import { TwitchPubSub } from "../integrations/twitchPubSub.js";
 import { MAX_CHANNELS } from "./constants.js";
+import { recordTick } from "../ops/history.js";
+import { metricsRegistry } from "../ops/metrics.js";
 export class Miner {
     state = new StateMachine();
     watchLoop = new WatchLoop();
@@ -54,13 +56,19 @@ export class Miner {
         await this.pubsub.start();
         this.setupPubSubHandlers(token);
         this.subscribePubSub(token);
+        // metrics: pubsub connected after start
+        metricsRegistry.setPubSubConnected(true);
         this.watchLoop.start(async () => {
             if (this.state.state !== "IDLE") {
                 await this.tickState(token);
             }
             if (!this.watchingChannel || !this.userId) {
+                // no watching, clear metrics watching gauge
+                metricsRegistry.clearWatching();
                 return;
             }
+            // update watching gauge
+            metricsRegistry.setWatching(this.watchingChannel.id, this.watchingChannel.login, this.watchingChannel.gameName ?? "unknown");
             if (this.dryRun) {
                 logger.info(`[dry-run] Would send watch for channel ${this.watchingChannel.login} (id=${this.watchingChannel.id})`);
             }
@@ -70,9 +78,23 @@ export class Miner {
                 });
                 if (ok) {
                     logger.info(`Watch tick sent for channel ${this.watchingChannel.login}`);
+                    metricsRegistry.incWatchTick(this.watchingChannel.id, this.watchingChannel.login, this.watchingChannel.gameName ?? "unknown", 1);
+                    // History: record minute tick — timestamp, channelId, channelLogin, game, minutesTotal per game.
+                    // For minutesTotal we use per-game cumulative from metricsRegistry (best-effort), else 1.
+                    const gameTotal = metricsRegistry.toJSON().minutesPerGame;
+                    const minutesForGame = gameTotal
+                        ? (gameTotal[this.watchingChannel.gameName ?? "unknown"] ?? 1)
+                        : 1;
+                    recordTick({
+                        channelId: this.watchingChannel.id,
+                        channelLogin: this.watchingChannel.login,
+                        game: this.watchingChannel.gameName ?? "unknown",
+                        minutesTotal: minutesForGame
+                    });
                 }
                 else {
                     logger.warn(`Watch tick failed for channel ${this.watchingChannel.login}`);
+                    metricsRegistry.incWatchError();
                 }
             }
             saveSessionState({
@@ -111,6 +133,8 @@ export class Miner {
             await this.pubsub.stop();
             this.pubsub = null;
         }
+        metricsRegistry.setPubSubConnected(false);
+        metricsRegistry.clearWatching();
         this.state.setState("EXIT");
         saveSessionState({
             state: "EXIT",
@@ -151,6 +175,7 @@ export class Miner {
                     });
                     drop.markClaimed();
                     logger.info({ dropId: drop.id, instanceId: drop.dropInstanceId }, "Claimed drop");
+                    metricsRegistry.incClaimed(1);
                 }
                 catch (err) {
                     logger.warn({ err, dropId: drop.id }, "Claim drop failed");
@@ -281,6 +306,8 @@ export class Miner {
         const built = buildInventoryFromGqlResponses(inventoryResponse, campaignsResponse, { enableBadgesEmotes: cfg.enableBadgesEmotes });
         this.campaigns = built.campaigns;
         this.timeTriggers = built.timeTriggers;
+        metricsRegistry.incInventoryFetch();
+        metricsRegistry.setCampaigns(this.campaigns.length, this.campaigns.filter((c) => c.eligible).length);
         logger.debug({
             campaigns: this.campaigns.map((c) => ({
                 id: c.id,
