@@ -143,6 +143,118 @@ More ops docs:
 - `docs/ops/systemd-hardening.md`
 - `docs/ops/drops-validation.md` – validate drops progression and claims
 
+## Observability — what am I farming?
+
+This CLI was built for tinkerers. Every minute is counted locally, and you can query it in multiple ways:
+
+### CLI
+
+```bash
+# Rich status — watching channel, session age, parity (199 pool 8x50), history summary
+tdm status --json | jq
+
+# Detailed drop list with remaining mins, progress %, canClaim, precondMet
+tdm drops                    # human
+tdm drops --claimable        # only claimable
+tdm drops --json | jq        # structured
+tdm drops --game Overwatch   # filter
+
+# Watch history — SQLite at ~/.local/state/tdm/history.db (node:sqlite builtin, WAL)
+tdm history --summary          # total ticks, per game, per channel, time range
+tdm history --paths            # db location + backend (sqlite/jsonl)
+tdm history --last 50          # recent ticks
+tdm history --prune-days 30    # keep last 30d
+tdm history --export csv       # CSV for your own analysis
+
+# Live TUI — polls session + history + metrics, progress bars
+tdm watch
+
+# Strategy — calendar, optimization, simulation, rules
+tdm calendar --days 14         # next drops expiring
+tdm optimize --mode history    # suggest priority order based on your watch history
+tdm simulate --hours 24        # predict completions
+tdm rules --add 'viewers < 100 => skip'  # local rules engine ~/.config/tdm/rules.json
+```
+
+### Metrics endpoints (for dashboards, Prometheus)
+
+Run with metrics server:
+
+```bash
+tdm run --metrics-port 9098 --metrics-host 0.0.0.0
+```
+
+Then you get:
+
+- `GET /` or `/health` → JSON summary: `watchingChannelLogin`, `watchingGame`, `minutesPerGame`, `claimedTotal`, `eligibleCampaigns`, `pubsubConnected`, uptime
+- `GET /status` → same plus `activeDrop`, `wantedGames`, `channelsCount`, `state` — merged for Glance
+- `GET /drops` → top active drops `[{game,name,progress,remaining,required,canClaim}]` sorted claimable first — perfect for dashboards
+- `GET /metrics` → Prometheus text exposition `twitch_drops_*` (up, watching gauge, minutes_total, watch_ticks_total, campaigns_total, eligible, claimed_total, pubsub_connected, etc.)
+
+Example:
+
+```bash
+curl -s http://localhost:9098/drops | jq
+# [{"game":"Overwatch","name":"EWC Diamond","progress":0.75,"remaining":182,"required":720,"canClaim":false}]
+curl -s http://localhost:9098/metrics | grep twitch_drops_watching
+# twitch_drops_watching{channel="warn",channel_id="53648099",game="Overwatch"} 1
+```
+
+### Cool things you can do
+
+**1. Glance app dashboard — live widget ([glanceapp/glance](https://github.com/glanceapp/glance))**
+
+[Glance](https://github.com/glanceapp/glance) is a fast, self-hosted dashboard for homelabs. It supports `custom-api` widgets with Go templates that can fetch any JSON endpoint. `tdm` exposes `/status` + `/drops` exactly for this.
+
+Example widget (full styling with progress bars in [`docs/examples/glance-tdm-widget.yml`](docs/examples/glance-tdm-widget.yml)):
+
+```yaml
+# ~/.config/glance/glance.yml snippet — requires tdm run --metrics-port 9098 --metrics-host 0.0.0.0
+- type: custom-api
+  title: 🎮 Twitch Drops Miner
+  cache: 15s
+  url: http://localhost:9098/status
+  template: |
+    {{ $s := .JSON }}
+    {{ $watching := $s.String "watchingChannelLogin" }}
+    {{ $game := $s.String "watchingGame" }}
+    {{ $dropsReq := newRequest "http://localhost:9098/drops" | getResponse }}
+    {{ $drops := $dropsReq.JSON.Array "" }}
+    <div class="flex flex-column gap-12">
+      {{ if ne $watching "" }}
+        <div>WATCHING {{ $watching }} · {{ $game }}</div>
+      {{ end }}
+      {{ range $drops }}
+        <div>{{ .String "name" }} — {{ .Int "remaining" }}m left ({{ printf "%.0f" (mul (.Float "progress") 100) }}%)</div>
+      {{ end }}
+    </div>
+```
+
+Result: a live card showing currently watched channel, LIVE/OFF (pubsubConnected), active drops with progress bars, remaining minutes, claimable highlight, total claimed, eligible/total campaigns. In our homelab it lives in Night City Grid next to Jellyfin/Sonarr at `http://localhost:8080` and refreshes every 15s.
+
+**2. Prometheus + Grafana** — scrape `http://host:9098/metrics`, build panels:
+
+```promql
+twitch_drops_watching
+twitch_drops_minutes_total
+twitch_drops_claimed_total
+twitch_drops_eligible_campaigns
+```
+
+**3. Home Assistant / ntfy / MQTT / Discord** — `tdm` has webhooks:
+
+```bash
+tdm config set webhooks.onClaim 'https://ntfy.sh/my-topic'
+tdm config set webhooks.onClaim 'exec:/usr/local/bin/notify.sh {{game}} {{dropName}} {{channelLogin}}'
+tdm config set webhooks.onClaim 'https://discord.com/api/webhooks/...'
+```
+
+Templating: `{{game}} {{dropName}} {{channelLogin}} {{dropId}} {{campaignId}}`. Get push notification when `Life Preserver Spray` gets claimed.
+
+**4. Export + analyze** — `tdm history --export csv > history.csv` then chart minutes per game per day, optimize priority order with `tdm optimize --mode history` (reads your SQLite history to score games by availability vs your past efficiency). DB at `~/.local/state/tdm/history.db` (node:sqlite WAL, no native deps, JSONL fallback)
+
+All user data stays at `~/.config/tdm/` + `~/.local/state/tdm/` (XDG), never uploaded.
+
 ### Troubleshooting
 
 - **"Another tdm instance appears to be running"** – Only one miner can run at a time (lock file). If the previous run was **force-killed**, **crashed**, or didn’t exit cleanly, remove the lock and try again:  

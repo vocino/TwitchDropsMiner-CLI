@@ -1,0 +1,52 @@
+# Glance app widget for TwitchDropsMiner-CLI
+# Repo: https://github.com/glanceapp/glance — self-hosted dashboard
+# Live demo: this widget running production at glance.yml (see Night City Grid)
+
+# Requires: tdm run --metrics-port 9098 --metrics-host 0.0.0.0
+# Endpoints:
+# - GET /status  -> watching, game, claimed, eligible, uptime
+# - GET /drops   -> [{game,name,progress,remaining,required,canClaim}]
+# - GET /metrics -> Prometheus text
+# - GET /health  -> 200 OK
+
+- type: custom-api
+  title: Twitch Drops Miner
+  cache: 15s
+  url: http://192.168.1.100:9098/status
+  template: |
+    {{ $s := .JSON }}
+    {{ $watching := $s.String "watchingChannelLogin" }}
+    {{ $game := $s.String "watchingGame" }}
+    {{ $claimed := $s.Int "claimedTotal" }}
+    {{ $eligible := $s.Int "eligibleCampaigns" }}
+    {{ $total := $s.Int "campaignsTotal" }}
+    {{ $pubsub := $s.Int "pubsubConnected" }}
+    {{ $uptime := $s.Int "uptimeSeconds" }}
+    {{ $dropsReq := newRequest "http://192.168.1.100:9098/drops" | getResponse }}
+    {{ $drops := $dropsReq.JSON.Array "" }}
+    <div class="flex flex-column gap-12">
+      {{ if ne $watching "" }}
+        <div class="flex justify-between items-center">
+          <div><span class="size-h6 color-subdue">WATCHING</span><br/><span class="size-h4 color-highlight">{{ $watching }}</span><span class="size-h6 color-subdue"> · {{ $game }}</span></div>
+          <div class="text-right"><span class="size-h6 {{ if eq $pubsub 1 }}color-positive{{ else }}color-negative{{ end }}">{{ if eq $pubsub 1 }}LIVE{{ else }}OFF{{ end }}</span><br/><span class="size-h6 color-subdue">{{ $uptime }}s up</span></div>
+        </div>
+      {{ else }}
+        <p class="size-h6 color-subdue">Miner idle</p>
+      {{ end }}
+      {{ if gt (len $drops) 0 }}
+        <ul class="list list-gap-8">
+          {{ range $drops }}
+            {{ $prog := .Float "progress" }}
+            <li>{{ .String "name" }} — {{ printf "%.0f%%" (mul $prog 100) }} ({{ .Int "remaining" }}m left)</li>
+          {{ end }}
+        </ul>
+      {{ end }}
+      <div>📦 {{ $claimed }} claimed · {{ $eligible }}/{{ $total }} campaigns</div>
+    </div>
+
+- type: monitor
+  title: Homelab Grid
+  sites:
+    - title: Twitch Drops Miner
+      url: http://192.168.1.100:9098/health
+      icon: si:twitch
