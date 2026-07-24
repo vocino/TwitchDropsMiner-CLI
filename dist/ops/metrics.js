@@ -271,6 +271,15 @@ catch {
 // HTTP endpoint logic
 // ---------------------------------------------------------------------------
 let metricsServer = null;
+// Callbacks for richer endpoints (set by miner)
+let getActiveDropsCallback = null;
+let getStatusCallback = null;
+export function setActiveDropsProvider(cb) {
+    getActiveDropsCallback = cb;
+}
+export function setStatusProvider(cb) {
+    getStatusCallback = cb;
+}
 export function startMetricsServer(opts) {
     if (metricsServer) {
         return metricsServer;
@@ -289,13 +298,40 @@ export function startMetricsServer(opts) {
                 res.end(body);
                 return;
             }
+            if (url === "/drops") {
+                // Active drop details for dashboards
+                try {
+                    const drops = getActiveDropsCallback ? getActiveDropsCallback() : [];
+                    const j = JSON.stringify(drops);
+                    res.writeHead(200, { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(j) });
+                    res.end(j);
+                }
+                catch {
+                    res.writeHead(200, { "Content-Type": "application/json" });
+                    res.end("[]");
+                }
+                return;
+            }
+            if (url === "/status") {
+                try {
+                    const s = getStatusCallback ? getStatusCallback() : {};
+                    const j = JSON.stringify({ ...metricsRegistry.toJSON(), ...s });
+                    res.writeHead(200, { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(j) });
+                    res.end(j);
+                }
+                catch {
+                    res.writeHead(200, { "Content-Type": "application/json" });
+                    res.end("{}");
+                }
+                return;
+            }
             if (url === "/health" || url === "/") {
                 res.writeHead(200, { "Content-Type": "application/json" });
                 res.end(JSON.stringify(metricsRegistry.toJSON()));
                 return;
             }
             res.writeHead(404, { "Content-Type": "text/plain" });
-            res.end("Not found. Try /metrics\n");
+            res.end("Not found. Try /metrics, /drops, /status, /health\n");
         }
         catch {
             try {

@@ -14,7 +14,7 @@ import { loadConfig } from "../config/store.js";
 import { TwitchPubSub } from "../integrations/twitchPubSub.js";
 import { MAX_CHANNELS } from "./constants.js";
 import { recordTick } from "../ops/history.js";
-import { metricsRegistry } from "../ops/metrics.js";
+import { metricsRegistry, setActiveDropsProvider, setStatusProvider } from "../ops/metrics.js";
 import { dispatchHook } from "../ops/webhooks.js";
 export class Miner {
     state = new StateMachine();
@@ -51,6 +51,9 @@ export class Miner {
         const validation = await session.validateAccessToken(token);
         this.userId = validation.user_id;
         logger.info("Auth validated. Starting miner.");
+        // Wire drop status providers for /drops and /status endpoints (Glance)
+        setActiveDropsProvider(() => this.getActiveDropsForApi());
+        setStatusProvider(() => this.getStatusForApi());
         this.state.setState("INVENTORY_FETCH");
         await this.tickState(token);
         this.pubsub = new TwitchPubSub();
@@ -80,17 +83,12 @@ export class Miner {
                 if (ok) {
                     logger.info(`Watch tick sent for channel ${this.watchingChannel.login}`);
                     metricsRegistry.incWatchTick(this.watchingChannel.id, this.watchingChannel.login, this.watchingChannel.gameName ?? "unknown", 1);
-                    // History: record minute tick — timestamp, channelId, channelLogin, game, minutesTotal per game.
-                    // For minutesTotal we use per-game cumulative from metricsRegistry (best-effort), else 1.
-                    const gameTotal = metricsRegistry.toJSON().minutesPerGame;
-                    const minutesForGame = gameTotal
-                        ? (gameTotal[this.watchingChannel.gameName ?? "unknown"] ?? 1)
-                        : 1;
+                    // History: record minute tick — always 1 minute delta, not cumulative
                     recordTick({
                         channelId: this.watchingChannel.id,
                         channelLogin: this.watchingChannel.login,
                         game: this.watchingChannel.gameName ?? "unknown",
-                        minutesTotal: minutesForGame
+                        minutesTotal: 1
                     });
                     void dispatchHook("watch_tick", {
                         game: this.watchingChannel.gameName ?? "unknown",
@@ -216,6 +214,46 @@ export class Miner {
                 return `${campaign.gameName}: ${first.name}`;
         }
         return null;
+    }
+    getActiveDropsForApi() {
+        const out = [];
+        for (const campaign of this.campaigns) {
+            for (const drop of campaign.drops) {
+                if (drop.isClaimed)
+                    continue;
+                // only drops that can earn
+                if (!drop.canEarnWithin(new Date(Date.now() + 60 * 60 * 1000)))
+                    continue;
+                const remaining = drop.totalRemainingMinutes;
+                const required = drop.totalRequiredMinutes;
+                const progress = drop.progress;
+                out.push({
+                    game: campaign.gameName,
+                    name: drop.name,
+                    progress,
+                    remaining,
+                    required,
+                    canClaim: drop.canClaim
+                });
+            }
+        }
+        // sort: claimable first, then most progress
+        out.sort((a, b) => {
+            if (a.canClaim !== b.canClaim)
+                return a.canClaim ? -1 : 1;
+            return b.progress - a.progress;
+        });
+        return out.slice(0, 10); // top 10 for dashboard
+    }
+    getStatusForApi() {
+        return {
+            activeDrop: this.getActiveDropText(),
+            wantedGames: this.wantedGames,
+            channelsCount: this.channels.length,
+            watchingChannel: this.watchingChannel ? { id: this.watchingChannel.id, login: this.watchingChannel.login, game: this.watchingChannel.gameName } : null,
+            campaignsCount: this.campaigns.length,
+            state: this.state.state
+        };
     }
     findDropByInstanceId(instanceId) {
         for (const campaign of this.campaigns) {
