@@ -6,8 +6,8 @@ This document tracks parity status between CLI (0.2.x+) and Python upstream (Dev
 
 | Op | Upstream hash | CLI hash | Status |
 |---|---|---|---|
-| Inventory | 8337eb... | 8337eb... | ✅ Synced 2026-07-30 from d86775 |
-| ViewerDropsDashboard (Campaigns) | d9cae7... | d9cae7... | ✅ Synced 2026-07-30 from 5a4da2 |
+| Inventory | 8337eb... | 8337eb... | ✅ Synced 2026-07-30 |
+| ViewerDropsDashboard (Campaigns) | d9cae7... | d9cae7... | ✅ Synced 2026-07-30 |
 | DirectoryPage_Game (GameDirectory) | 86bcce... | 86bcce... | ✅ Was 76cb06 -> synced |
 | DirectoryGameRedirect (SlugRedirect) | 1f0300... | 1f0300... | ✅ Added |
 | VideoPlayerStreamInfoOverlayChannel (GetStreamInfo) | 198492... | 198492... | ✅ Added |
