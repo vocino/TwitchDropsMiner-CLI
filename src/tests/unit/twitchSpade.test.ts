@@ -16,7 +16,9 @@ test("buildSpadePayload returns base64 data with minute-watched event", () => {
   assert.equal(payload[0]?.properties?.channel, "streamer");
   assert.equal(payload[0]?.properties?.user_id, "user1");
   assert.equal(payload[0]?.properties?.live, true);
-  assert.equal(payload[0]?.properties?.player, "site");
+  // upstream 2026-07-11 reverted to Spade: no location/player — ensure minimal payload
+  assert.equal(payload[0]?.properties?.location, undefined);
+  assert.equal(payload[0]?.properties?.player, undefined);
 });
 
 test("buildSpadePayload includes upstream parity fields game, game_id, client_time, is_live, minutes_logged", () => {
