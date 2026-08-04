@@ -101,3 +101,4 @@ Tests: pool shards 60 topics into 2 sockets correctly.
 
 - CLI 0.2.0 base: single WS, 5 GQL ops, old hash, no precondition chain check, basic spade
 - After Phases 1-6 (0.2.0 + d41da55..af14161..): 11 GQL ops, 199 channels, 8x50 pool, chain-aware inventory, full spade payload, proxy/device/captcha, richer status/doctor
+- CLI 0.6.0 (2026-08-03): 11 GQL ops synced 2026-07-30 (Inventory 8337eb.., Campaigns d9cae7..), strategy engine (calendar/optimize/simulate/rules), homelab glue (webhooks/export/sleep), observability (status/doctor/glance)
