@@ -23,18 +23,16 @@ export function buildSpadePayload(broadcastId, channelId, channelLogin, userId, 
                 broadcast_id: broadcastId,
                 channel_id: channelId,
                 channel: channelLogin,
-                hidden: false,
-                live: true,
-                location: "channel",
-                logged_in: true,
-                muted: false,
-                player: "site",
-                user_id: userId,
                 client_time: isoNow(),
                 game: opts?.gameName ?? "",
                 game_id: opts?.gameId ?? "",
+                hidden: false,
                 is_live: true,
-                minutes_logged: 1
+                live: true,
+                logged_in: true,
+                minutes_logged: 1,
+                muted: false,
+                user_id: userId
             }
         }
     ];
@@ -59,7 +57,6 @@ export function buildSpadeGqlPayload(broadcastId, channelId, channelLogin, userI
                 hidden: false,
                 is_live: true,
                 live: true,
-                location: "channel",
                 logged_in: true,
                 minutes_logged: 1,
                 muted: false,
