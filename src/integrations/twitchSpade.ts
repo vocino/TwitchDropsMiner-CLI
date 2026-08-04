@@ -13,19 +13,16 @@ export interface SpadePayload {
     broadcast_id: string;
     channel_id: string;
     channel: string;
-    hidden: boolean;
-    live: boolean;
-    location: string;
-    logged_in: boolean;
-    muted: boolean;
-    player: string;
-    user_id: string;
-    // Additional fields from DevilXD upstream for higher fidelity
     client_time?: string;
     game?: string;
     game_id?: string;
+    hidden: boolean;
     is_live?: boolean;
+    live: boolean;
+    logged_in: boolean;
     minutes_logged?: number;
+    muted: boolean;
+    user_id: string;
   };
 }
 
@@ -56,18 +53,16 @@ export function buildSpadePayload(
         broadcast_id: broadcastId,
         channel_id: channelId,
         channel: channelLogin,
-        hidden: false,
-        live: true,
-        location: "channel",
-        logged_in: true,
-        muted: false,
-        player: "site",
-        user_id: userId,
         client_time: isoNow(),
         game: opts?.gameName ?? "",
         game_id: opts?.gameId ?? "",
+        hidden: false,
         is_live: true,
-        minutes_logged: 1
+        live: true,
+        logged_in: true,
+        minutes_logged: 1,
+        muted: false,
+        user_id: userId
       }
     }
   ];
@@ -99,7 +94,6 @@ export function buildSpadeGqlPayload(
         hidden: false,
         is_live: true,
         live: true,
-        location: "channel",
         logged_in: true,
         minutes_logged: 1,
         muted: false,
