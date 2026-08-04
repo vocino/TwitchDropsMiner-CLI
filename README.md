@@ -261,6 +261,24 @@ All user data stays at `~/.config/tdm/` + `~/.local/state/tdm/` (XDG), never upl
   **Windows:** delete `%USERPROFILE%\.local\state\tdm\lock.file`  
   **Linux/macOS:** `rm -f ~/.local/state/tdm/lock.file`
 
+## Versioning
+
+This project follows [Semantic Versioning 2.0.0](https://semver.org) — `MAJOR.MINOR.PATCH`
+
+- **MAJOR** — breaking CLI change or incompatible config change
+- **MINOR** — new feature (new command, strategy, webhook) backwards-compatible
+- **PATCH** — bugfix, parity fix with upstream DevilXD, docs/ops fix
+
+We’re `0.y.z` initial development, so MINOR may include breaking-ish changes with notes in release.
+
+Releases via Conventional Commits → release-please:
+
+- `fix:` → PATCH (e.g., spade payload parity)
+- `feat:` → MINOR (e.g., new `tdm optimize` mode)
+- `feat!:` / `BREAKING CHANGE:` → MAJOR (or MINOR while `0.y.z`)
+
+Tag `vX.Y.Z` triggers `npm publish` via trusted publisher with provenance. Current: `0.6.0`
+
 ## Credits
 
 This CLI is based on [**TwitchDropsMiner**](https://github.com/DevilXD/TwitchDropsMiner) by [DevilXD](https://github.com/DevilXD) — the original desktop app that mines Twitch drops without streaming video. TwitchDropsMiner-CLI reimplements its behavior (inventory, spade beacons, PubSub, game priority, auto-claim) for headless and server use.
