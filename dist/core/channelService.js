@@ -58,9 +58,15 @@ export function parseSlugRedirectResponse(response) {
         return slug;
     return null;
 }
-export function getAclChannelIdsFromCampaigns(_campaigns) {
+export function getAclChannelIdsFromCampaigns(campaigns) {
     const ids = new Set();
-    for (const c of _campaigns) {
+    for (const c of campaigns) {
+        // New: read parsed allowedChannelIds if present
+        if (c.allowedChannelIds && c.allowedChannelIds.size > 0) {
+            for (const id of c.allowedChannelIds)
+                ids.add(id);
+        }
+        // Back-compat: legacy allowlistChannelIds field (shouldn't exist now but keep for safety)
         const raw = c?.allowlistChannelIds;
         if (Array.isArray(raw)) {
             for (const id of raw)

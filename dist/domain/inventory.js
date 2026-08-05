@@ -90,18 +90,22 @@ export class TimedDrop {
         return Math.max(0, this.requiredMinutes - this.currentMinutes);
     }
     get totalRequiredMinutes() {
-        const chainTotal = this.preconditionDropIds
+        // Upstream DevilXD uses max(), not sum — precondition chain is overlapping, not additive
+        // Python: return self.required_minutes + max((campaign.timed_drops[pid].total_required_minutes for pid in precondition_drops), default=0)
+        const chainValues = this.preconditionDropIds
             .map((id) => this.campaign.timedDrops.get(id))
             .filter((d) => !!d)
-            .reduce((acc, d) => acc + d.totalRequiredMinutes, 0);
-        return this.requiredMinutes + chainTotal;
+            .map((d) => d.totalRequiredMinutes);
+        const chainMax = chainValues.length ? Math.max(...chainValues) : 0;
+        return this.requiredMinutes + chainMax;
     }
     get totalRemainingMinutes() {
-        const chainRemaining = this.preconditionDropIds
+        const chainValues = this.preconditionDropIds
             .map((id) => this.campaign.timedDrops.get(id))
             .filter((d) => !!d)
-            .reduce((acc, d) => acc + d.totalRemainingMinutes, 0);
-        return this.remainingMinutes + chainRemaining;
+            .map((d) => d.totalRemainingMinutes);
+        const chainMax = chainValues.length ? Math.max(...chainValues) : 0;
+        return this.remainingMinutes + chainMax;
     }
     get progress() {
         if (this.currentMinutes <= 0 || this.requiredMinutes <= 0) {
@@ -195,23 +199,30 @@ export class DropsCampaign {
     name;
     gameName;
     gameSlug;
+    gameId;
     startsAt;
     endsAt;
     linked;
     valid;
     timedDrops;
     enableBadgesEmotes;
+    allowedChannelIds;
     constructor(raw, claimedBenefits, enableBadgesEmotes) {
         this.id = String(raw.id);
         this.name = String(raw.name);
         const game = raw.game || {};
         this.gameName = String(game.name ?? game.displayName ?? "Unknown Game");
         this.gameSlug = String(game.slug ?? this.gameName.toLowerCase().replace(/\s+/g, "-"));
+        this.gameId = String(game.id ?? "");
         this.linked = !!(raw.self?.isAccountConnected);
         this.startsAt = new Date(String(raw.startAt));
         this.endsAt = new Date(String(raw.endAt));
         this.valid = raw.status !== "EXPIRED";
         this.enableBadgesEmotes = enableBadgesEmotes;
+        // ACL allowlist if present (raw.allow.channels[].id)
+        const allow = raw.allow ?? {};
+        const allowChannels = allow.channels ?? [];
+        this.allowedChannelIds = new Set(allowChannels.map((c) => String(c.id ?? c.login ?? "")).filter(Boolean));
         const drops = raw.timeBasedDrops || [];
         this.timedDrops = new Map(drops.map((drop) => {
             const td = new TimedDrop(this, drop, claimedBenefits);

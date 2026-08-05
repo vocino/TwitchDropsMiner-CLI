@@ -1,11 +1,32 @@
+/**
+ * Special game IDs that can be earned watching ANY game — upstream DevilXD b5e1993 (IRL).
+ * Keep list in sync with src/core/constants.ts SPECIAL_GAME_IDS.
+ */
+const SPECIAL_GAME_IDS = new Set(["509663", "509672"]);
+/**
+ * Special game names that are earnable anywhere (fallback when gameId not available).
+ * IRL / Just Chatting variants.
+ */
+const SPECIAL_GAME_NAMES_LOWER = new Set(["irl", "irl - real life", "just chatting"]);
+function isSpecialGame(channel) {
+    if (channel.gameId && SPECIAL_GAME_IDS.has(String(channel.gameId)))
+        return true;
+    if (channel.gameName && SPECIAL_GAME_NAMES_LOWER.has(channel.gameName.toLowerCase()))
+        return true;
+    return false;
+}
 export function canWatchChannel(channel, wantedGames) {
     if (!channel.online) {
         return false;
     }
-    if (!channel.gameName) {
+    if (!channel.dropsEnabled) {
         return false;
     }
-    if (!channel.dropsEnabled) {
+    // ACL-based or special game (IRL) can be watched regardless of gameName match — upstream b5e1993
+    if (channel.aclBased === true || isSpecialGame(channel)) {
+        return true;
+    }
+    if (!channel.gameName) {
         return false;
     }
     return wantedGames.includes(channel.gameName);

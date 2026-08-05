@@ -77,10 +77,15 @@ export interface ChannelServiceOptions {
   resolveSlugs?: boolean;
 }
 
-export function getAclChannelIdsFromCampaigns(_campaigns: DropsCampaign[]): Set<string> {
+export function getAclChannelIdsFromCampaigns(campaigns: DropsCampaign[]): Set<string> {
   const ids = new Set<string>();
-  for (const c of _campaigns as unknown as Json[]) {
-    const raw = (c as Json)?.allowlistChannelIds as unknown;
+  for (const c of campaigns) {
+    // New: read parsed allowedChannelIds if present
+    if (c.allowedChannelIds && c.allowedChannelIds.size > 0) {
+      for (const id of c.allowedChannelIds) ids.add(id);
+    }
+    // Back-compat: legacy allowlistChannelIds field (shouldn't exist now but keep for safety)
+    const raw = (c as unknown as Json)?.allowlistChannelIds as unknown;
     if (Array.isArray(raw)) {
       for (const id of raw as string[]) if (typeof id === "string") ids.add(id);
     }

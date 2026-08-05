@@ -17,3 +17,15 @@ export const MAX_CHANNELS = Math.floor(MAX_TOPICS / TOPICS_PER_CHANNEL);
 export const TWITCH_ANDROID_CLIENT_ID = "kd1unb4b3q4t58fwlpcbzcbnm76a8fp";
 export const TWITCH_ANDROID_USER_AGENT =
   "Dalvik/2.1.0 (Linux; Android 16; SM-S911B Build/TP1A.220624.014) tv.twitch.android.app/25.3.0/2503006";
+
+// Special games that can be earned watching ANY game (upstream DevilXD b5e1993)
+// 509663 = Just Chatting? actually 509663 special, 509672 = IRL
+export const SPECIAL_GAME_IDS = new Set<number>([509663, 509672]);
+
+// Twitch game ID -> name mapping for special check (populated from inventory game ids if available)
+export function isSpecialGameId(id: number | string | undefined | null): boolean {
+  if (id == null) return false;
+  const n = typeof id === "string" ? parseInt(id, 10) : id;
+  if (!Number.isFinite(n)) return false;
+  return SPECIAL_GAME_IDS.has(n);
+}

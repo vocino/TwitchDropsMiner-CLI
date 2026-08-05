@@ -12,3 +12,4 @@ import "./integration/configStore.test.js";
 import "./parity/stateMachineFlow.test.js";
 import "./unit/gqlOperations.test.js";
 import "./unit/deviceStore.test.js";
+import "./unit/inventorySpecial.test.js";

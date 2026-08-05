@@ -109,19 +109,23 @@ export class TimedDrop {
   }
 
   get totalRequiredMinutes(): number {
-    const chainTotal = this.preconditionDropIds
+    // Upstream DevilXD uses max(), not sum — precondition chain is overlapping, not additive
+    // Python: return self.required_minutes + max((campaign.timed_drops[pid].total_required_minutes for pid in precondition_drops), default=0)
+    const chainValues = this.preconditionDropIds
       .map((id) => this.campaign.timedDrops.get(id))
       .filter((d): d is TimedDrop => !!d)
-      .reduce((acc, d) => acc + d.totalRequiredMinutes, 0);
-    return this.requiredMinutes + chainTotal;
+      .map((d) => d.totalRequiredMinutes);
+    const chainMax = chainValues.length ? Math.max(...chainValues) : 0;
+    return this.requiredMinutes + chainMax;
   }
 
   get totalRemainingMinutes(): number {
-    const chainRemaining = this.preconditionDropIds
+    const chainValues = this.preconditionDropIds
       .map((id) => this.campaign.timedDrops.get(id))
       .filter((d): d is TimedDrop => !!d)
-      .reduce((acc, d) => acc + d.totalRemainingMinutes, 0);
-    return this.remainingMinutes + chainRemaining;
+      .map((d) => d.totalRemainingMinutes);
+    const chainMax = chainValues.length ? Math.max(...chainValues) : 0;
+    return this.remainingMinutes + chainMax;
   }
 
   get progress(): number {
@@ -230,6 +234,7 @@ export class DropsCampaign {
   readonly name: string;
   readonly gameName: string;
   readonly gameSlug: string;
+  readonly gameId: string;
   readonly startsAt: Date;
   readonly endsAt: Date;
 
@@ -237,6 +242,7 @@ export class DropsCampaign {
   private readonly valid: boolean;
   readonly timedDrops: Map<string, TimedDrop>;
   private readonly enableBadgesEmotes: boolean;
+  readonly allowedChannelIds: Set<string>;
 
   constructor(raw: Json, claimedBenefits: Record<string, Date>, enableBadgesEmotes: boolean) {
     this.id = String(raw.id);
@@ -244,11 +250,17 @@ export class DropsCampaign {
     const game = (raw.game as Json) || {};
     this.gameName = String(game.name ?? game.displayName ?? "Unknown Game");
     this.gameSlug = String(game.slug ?? this.gameName.toLowerCase().replace(/\s+/g, "-"));
+    this.gameId = String(game.id ?? "");
     this.linked = !!((raw.self as Json | undefined)?.isAccountConnected);
     this.startsAt = new Date(String(raw.startAt));
     this.endsAt = new Date(String(raw.endAt));
     this.valid = raw.status !== "EXPIRED";
     this.enableBadgesEmotes = enableBadgesEmotes;
+
+    // ACL allowlist if present (raw.allow.channels[].id)
+    const allow = (raw.allow as Json | undefined) ?? {};
+    const allowChannels = (allow.channels as Json[] | undefined) ?? [];
+    this.allowedChannelIds = new Set(allowChannels.map((c) => String(c.id ?? c.login ?? "")).filter(Boolean));
 
     const drops = (raw.timeBasedDrops as Json[]) || [];
     this.timedDrops = new Map(
