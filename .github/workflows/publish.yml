@@ -39,6 +39,7 @@ jobs:
       - name: Publish with OIDC trusted publishing (provenance)
         if: steps.check.outputs.skip == 'false'
         env:
+          # setup-node will read this if present, but we also manually write .npmrc for fallback
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           VER=${{ steps.check.outputs.version }}
@@ -71,10 +72,13 @@ jobs:
           if [ -z "$NODE_AUTH_TOKEN" ]; then
             echo "::error::Provenance failed and no NPM_TOKEN available. Publish cannot continue."
             echo "::error::Fix: npmjs.com -> twitchdropsminer-cli -> Settings -> Trusted Publishers -> vocino/TwitchDropsMiner-CLI publish.yml"
-            echo "::error::OR: https://www.npmjs.com/settings/tokens -> Automation token -> add as NPM_TOKEN at https://github.com/vocino/TwitchDropsMiner-CLI/settings/secrets/actions"
+            echo "::error::OR: https://www.npmjs.com/settings/tokens -> Automation token -> add as NPM_TOKEN"
             tail -20 /tmp/publish-provenance.log
             exit 1
           fi
+          echo "Writing NPM_TOKEN to ~/.npmrc for fallback..."
+          # setup-node may have written an empty .npmrc; overwrite with real token (masked by GitHub secrets)
+          echo "//registry.npmjs.org/:_authToken=$NODE_AUTH_TOKEN" > ~/.npmrc
           npm publish --access public 2>&1 | tee /tmp/publish-token.log
           TOKEN_EXIT=${PIPESTATUS[0]}
           echo "Token fallback exit code: $TOKEN_EXIT"
