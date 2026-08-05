@@ -1,4 +1,5 @@
 import { request } from "undici";
+import { gzipSync } from "node:zlib";
 import { TWITCH_ANDROID_CLIENT_ID, TWITCH_ANDROID_USER_AGENT } from "../core/constants.js";
 const SPADE_PATTERN = /"(?:beacon|spade)_?url":\s*"(https:\/\/[.\w\-/]+\.ts(?:\?allow_stream=true)?)"/i;
 const SETTINGS_PATTERN = /src="(https:\/\/[\w.]+\/config\/settings\.[0-9a-f]{32}\.js)"/i;
@@ -65,17 +66,8 @@ export function buildSpadeGqlPayload(broadcastId, channelId, channelLogin, userI
         }
     ];
     const json = jsonMinify(watchPayload);
-    // gzip compress if available (node), fallback to plain b64
-    let encodedData;
-    try {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const zlib = require("zlib");
-        const gz = zlib.gzipSync(Buffer.from(json, "utf8"));
-        encodedData = gz.toString("base64");
-    }
-    catch {
-        encodedData = Buffer.from(json, "utf8").toString("base64");
-    }
+    const gz = gzipSync(Buffer.from(json, "utf8"));
+    const encodedData = gz.toString("base64");
     const query = "\n mutation SendEvents($input: SendSpadeEventsInput!) {\n sendSpadeEvents(input: $input) {\n statusCode\n}\n}\n";
     return { query, encodedData };
 }
