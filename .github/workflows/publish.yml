@@ -38,13 +38,10 @@ jobs:
           fi
       - name: Publish with OIDC trusted publishing (provenance)
         if: steps.check.outputs.skip == 'false'
-        # On main push we only publish if version is newer than published (prevents double-publish on every commit)
-        # On tag push v* we always publish that version
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           VER=${{ steps.check.outputs.version }}
-          # If this is a tag push, version must match tag (strip v)
           if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             TAG_VER=${{ github.ref_name }}
             TAG_VER=${TAG_VER#v}
@@ -57,23 +54,37 @@ jobs:
           else
             echo "NPM_TOKEN not set — OIDC only (must have trusted publisher configured)"
           fi
-          echo "Publishing $VER to npm (OIDC + provenance)..."
-          # Try OIDC first (trusted publisher, no token needed if configured on npmjs.com)
-          # See: https://docs.npmjs.com/trusted-publishers and https://www.npmjs.com/package/twitchdropsminer-cli/access
-          npm publish --provenance --access public 2>&1 || {
-            echo "OIDC (--provenance) publish failed, trying without provenance..."
-            if [ -n "$NODE_AUTH_TOKEN" ]; then
-              echo "Retrying with NPM_TOKEN (no provenance)..."
-              npm publish --access public 2>&1 || {
-                echo "::error::npm publish failed even with NPM_TOKEN."
-                exit 1
-              }
-            else
-              echo "::error::npm publish failed (OIDC) and no NPM_TOKEN fallback available."
-              echo "::error::Fix options:"
-              echo "::error::1) npmjs.com -> twitchdropsminer-cli -> Settings -> Trusted Publishers -> Add GitHub repo vocino/TwitchDropsMiner-CLI workflow publish.yml (Recommended, no token)"
-              echo "::error::2) Add NPM_TOKEN secret to GitHub repo settings: https://github.com/vocino/TwitchDropsMiner-CLI/settings/secrets/actions"
-              echo "::error::   Generate token at https://www.npmjs.com/settings/tokens (Automation token, publish access)"
-              exit 1
-            fi
-          }
+          echo "Publishing $VER to npm..."
+          echo "Attempt 1: npm publish --provenance --access public (OIDC)"
+          set +e
+          npm publish --provenance --access public 2>&1 | tee /tmp/publish-provenance.log
+          PROV_EXIT=${PIPESTATUS[0]}
+          echo "Provenance exit code: $PROV_EXIT"
+          if [ $PROV_EXIT -eq 0 ]; then
+            echo "✅ Published $VER with provenance (OIDC)!"
+            exit 0
+          fi
+          echo "— Provenance publish failed (exit $PROV_EXIT). Log tail:"
+          tail -40 /tmp/publish-provenance.log 2>&1 | head -40
+          echo ""
+          echo "Attempt 2: npm publish --access public (NPM_TOKEN fallback)"
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo "::error::Provenance failed and no NPM_TOKEN available. Publish cannot continue."
+            echo "::error::Fix: npmjs.com -> twitchdropsminer-cli -> Settings -> Trusted Publishers -> vocino/TwitchDropsMiner-CLI publish.yml"
+            echo "::error::OR: https://www.npmjs.com/settings/tokens -> Automation token -> add as NPM_TOKEN at https://github.com/vocino/TwitchDropsMiner-CLI/settings/secrets/actions"
+            tail -20 /tmp/publish-provenance.log
+            exit 1
+          fi
+          npm publish --access public 2>&1 | tee /tmp/publish-token.log
+          TOKEN_EXIT=${PIPESTATUS[0]}
+          echo "Token fallback exit code: $TOKEN_EXIT"
+          if [ $TOKEN_EXIT -eq 0 ]; then
+            echo "✅ Published $VER via NPM_TOKEN fallback (no provenance)!"
+            exit 0
+          fi
+          echo "::error::Both provenance and token publish failed."
+          echo "Provenance log tail:"
+          tail -20 /tmp/publish-provenance.log
+          echo "Token log tail:"
+          tail -20 /tmp/publish-token.log
+          exit 1
