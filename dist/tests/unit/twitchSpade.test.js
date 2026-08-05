@@ -14,7 +14,8 @@ test("buildSpadePayload returns base64 data with minute-watched event", () => {
     assert.equal(payload[0]?.properties?.channel, "streamer");
     assert.equal(payload[0]?.properties?.user_id, "user1");
     assert.equal(payload[0]?.properties?.live, true);
-    assert.equal(payload[0]?.properties?.player, "site");
+    // player/location removed in parity fix 4148c71 upstream — no longer expected
+    assert.equal(payload[0]?.properties?.player, undefined);
 });
 test("buildSpadePayload includes upstream parity fields game, game_id, client_time, is_live, minutes_logged", () => {
     const out = buildSpadePayload("123", "456", "chan", "u1", { gameName: "WoW", gameId: "12345" });

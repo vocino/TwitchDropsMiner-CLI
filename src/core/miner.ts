@@ -397,27 +397,44 @@ export class Miner {
       return;
     }
 
-    if (this.state.state === "INVENTORY_FETCH") {
-      await this.fetchInventory(token);
-      this.lastInventoryFetchHour = Math.floor(Date.now() / (60 * 60 * 1000));
-      this.state.setState("GAMES_UPDATE");
-    }
-    if (this.state.state === "GAMES_UPDATE") {
-      await this.claimEligibleDrops(token);
-      this.updateWantedGames();
-      this.state.setState("CHANNELS_CLEANUP");
-    }
-    if (this.state.state === "CHANNELS_CLEANUP") {
-      this.cleanupChannels();
-      this.state.setState("CHANNELS_FETCH");
-    }
-    if (this.state.state === "CHANNELS_FETCH") {
-      await this.fetchChannels(token);
-      this.state.setState("CHANNEL_SWITCH");
-    }
-    if (this.state.state === "CHANNEL_SWITCH") {
-      this.switchChannel();
-      this.state.setState(this.watchingChannel ? "IDLE" : "CHANNELS_FETCH");
+    try {
+      if (this.state.state === "INVENTORY_FETCH") {
+        await this.fetchInventory(token);
+        this.lastInventoryFetchHour = Math.floor(Date.now() / (60 * 60 * 1000));
+        this.state.setState("GAMES_UPDATE");
+      }
+      if (this.state.state === "GAMES_UPDATE") {
+        await this.claimEligibleDrops(token);
+        this.updateWantedGames();
+        this.state.setState("CHANNELS_CLEANUP");
+      }
+      if (this.state.state === "CHANNELS_CLEANUP") {
+        this.cleanupChannels();
+        this.state.setState("CHANNELS_FETCH");
+      }
+      if (this.state.state === "CHANNELS_FETCH") {
+        await this.fetchChannels(token);
+        this.state.setState("CHANNEL_SWITCH");
+      }
+      if (this.state.state === "CHANNEL_SWITCH") {
+        this.switchChannel();
+        this.state.setState(this.watchingChannel ? "IDLE" : "CHANNELS_FETCH");
+      }
+    } catch (err) {
+      const isCaptcha = err instanceof Error && err.name === "CaptchaRequiredError";
+      if (isCaptcha) {
+        logger.warn({ err: err instanceof Error ? err.message : String(err) }, "Captcha in tickState — backing off 5m, keeping current channel");
+        // don't crash process; keep watching current channel if any, retry inventory in 5 min
+        this.state.setState("IDLE");
+        await new Promise((r) => setTimeout(r, 5 * 60 * 1000)).catch(() => {});
+        this.state.setState("INVENTORY_FETCH");
+        return;
+      }
+      // re-throw non-captcha so upstream logging still sees it, but prevent total crash loop via outer guard
+      logger.error({ err: err instanceof Error ? err.message : String(err) }, "tickState error");
+      // back off briefly and reset to inventory fetch rather than exit
+      await new Promise((r) => setTimeout(r, 30_000)).catch(() => {});
+      this.state.setState("INVENTORY_FETCH");
     }
   }
 

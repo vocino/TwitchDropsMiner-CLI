@@ -96,25 +96,39 @@ export async function fetchChannelsForWantedGames(token, options) {
     const aclIds = getAclChannelIdsFromCampaigns(campaigns);
     const byId = new Map();
     const rows = await mapWithConcurrency(wantedGames, concurrency, async (gameName) => {
-        const slug = await resolveGameSlug(gameName, campaigns, token, gql, { resolveSlugs: shouldResolveSlugs });
-        const response = await gql(GQL_OPERATIONS.GameDirectory, token, {
-            slug,
-            limit: 30,
-            imageWidth: 50,
-            includeCostreaming: false,
-            options: {
-                broadcasterLanguages: [],
-                freeformTags: null,
-                includeRestricted: ["SUB_ONLY_LIVE"],
-                recommendationsContext: { platform: "web" },
-                sort: "RELEVANCE",
-                systemFilters: [],
-                tags: [],
-                requestID: "JIRA-VXP-2397"
-            },
-            sortTypeIsRecency: false
-        });
-        return { gameName, slug, response };
+        try {
+            const slug = await resolveGameSlug(gameName, campaigns, token, gql, { resolveSlugs: shouldResolveSlugs });
+            const response = await gql(GQL_OPERATIONS.GameDirectory, token, {
+                slug,
+                limit: 30,
+                imageWidth: 50,
+                includeCostreaming: false,
+                options: {
+                    broadcasterLanguages: [],
+                    freeformTags: null,
+                    includeRestricted: ["SUB_ONLY_LIVE"],
+                    recommendationsContext: { platform: "web" },
+                    sort: "RELEVANCE",
+                    systemFilters: [],
+                    tags: [],
+                    requestID: "JIRA-VXP-2397"
+                },
+                sortTypeIsRecency: false
+            });
+            return { gameName, slug, response };
+        }
+        catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            const isCaptcha = err instanceof Error && err.name === "CaptchaRequiredError";
+            if (isCaptcha) {
+                logger.warn({ gameName, err: msg }, "Captcha on GameDirectory — skipping this game for this tick");
+            }
+            else {
+                logger.warn({ gameName, err: msg }, "GameDirectory fetch failed — skipping game");
+            }
+            // Return empty response shape so this game simply yields 0 channels instead of crashing whole batch
+            return { gameName, slug: gameName.toLowerCase(), response: { data: { game: { streams: { edges: [] } } } } };
+        }
     });
     for (const { gameName, slug, response } of rows) {
         const resp = response;
