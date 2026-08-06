@@ -277,7 +277,7 @@ Releases via Conventional Commits → release-please:
 - `feat:` → MINOR (e.g., new `tdm optimize` mode)
 - `feat!:` / `BREAKING CHANGE:` → MAJOR (or MINOR while `0.y.z`)
 
-Tag `vX.Y.Z` triggers `npm publish` via trusted publisher with provenance. Current: `0.6.0`
+Tag `vX.Y.Z` triggers `npm publish` via OIDC trusted publisher with provenance (auto via `publishConfig`). Requires Node `>=22.14.0` per `engines`. Current: `0.6.1`
 
 ## Credits
 
