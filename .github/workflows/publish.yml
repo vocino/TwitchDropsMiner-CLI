@@ -2,8 +2,6 @@ name: Publish to npm
 
 on:
   push:
-    branches:
-      - main
     tags:
       - 'v*'
   workflow_dispatch:
@@ -15,10 +13,10 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
           registry-url: https://registry.npmjs.org
       - run: npm ci
       - run: npm run build
@@ -36,11 +34,8 @@ jobs:
           else
             echo "skip=false" >> $GITHUB_OUTPUT
           fi
-      - name: Publish with OIDC trusted publishing (provenance)
+      - name: Publish with OIDC trusted publishing
         if: steps.check.outputs.skip == 'false'
-        env:
-          # setup-node will read this if present, but we also manually write .npmrc for fallback
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           VER=${{ steps.check.outputs.version }}
           if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
@@ -50,44 +45,73 @@ jobs:
               echo "::warning::package.json version $VER != tag $TAG_VER, using package.json"
             fi
           fi
-          if [ -n "$NODE_AUTH_TOKEN" ]; then
-            echo "NPM_TOKEN present — fallback available if OIDC fails"
+          # Verify repository.url matches GitHub repo (required for OIDC)
+          REPO_URL=$(node -p "require('./package.json').repository?.url || ''")
+          echo "repository.url: $REPO_URL"
+          if [[ "$REPO_URL" != *"vocino/TwitchDropsMiner-CLI"* ]]; then
+            echo "::warning::repository.url does not contain vocino/TwitchDropsMiner-CLI — OIDC may fail"
+          fi
+          if [ -n "${{ secrets.NPM_TOKEN }}" ]; then
+            echo "NPM_TOKEN present — fallback available if OIDC fails (isolated, not used for OIDC)"
           else
             echo "NPM_TOKEN not set — OIDC only (must have trusted publisher configured)"
           fi
           echo "Publishing $VER to npm..."
-          echo "Attempt 1: npm publish --provenance --access public (OIDC)"
+          echo "Attempt 1: npm publish (OIDC trusted publisher, provenance auto)"
           set +e
-          npm publish --provenance --access public 2>&1 | tee /tmp/publish-provenance.log
+          # Ensure no stale token interferes with OIDC — OIDC must run without NODE_AUTH_TOKEN
+          # setup-node may set NPM_CONFIG_USERCONFIG; ensure we don't have a token in .npmrc for OIDC
+          if [ -f ~/.npmrc ]; then echo "Existing ~/.npmrc for OIDC (should be empty):"; cat ~/.npmrc | sed 's/_authToken=.*/_authToken=***/'; fi
+          npm publish 2>&1 | tee /tmp/publish-provenance.log
           PROV_EXIT=${PIPESTATUS[0]}
-          echo "Provenance exit code: $PROV_EXIT"
+          echo "OIDC exit code: $PROV_EXIT"
           if [ $PROV_EXIT -eq 0 ]; then
-            echo "✅ Published $VER with provenance (OIDC)!"
+            echo "✅ Published $VER with OIDC trusted publishing (provenance auto)!"
             exit 0
           fi
-          echo "— Provenance publish failed (exit $PROV_EXIT). Log tail:"
+          echo "— OIDC publish failed (exit $PROV_EXIT). Log tail:"
           tail -40 /tmp/publish-provenance.log 2>&1 | head -40
+          # EOTP detection with actionable remediation
+          if grep -q "code EOTP" /tmp/publish-provenance.log || grep -q "one-time password" /tmp/publish-provenance.log; then
+            echo ""
+            echo "::error::npm requires a one-time password (2FA) — OIDC not accepted."
+            echo "::error::Fix OIDC trusted publisher on npmjs.com:"
+            echo "::error::  npmjs.com -> twitchdropsminer-cli -> Settings -> Trusted Publishers"
+            echo "::error::  Add: Organization=vocino, Repository=TwitchDropsMiner-CLI, Workflow filename=publish.yml (filename only, not path)"
+            echo "::error::  Allowed actions: npm publish must be checked"
+            echo "::error::  Also verify package.json repository.url = git+https://github.com/vocino/TwitchDropsMiner-CLI.git"
+            echo "::error::  Workflow needs: permissions id-token: write, ubuntu-latest cloud runner, node >=22.14"
+            echo "::error::OR for token fallback: https://www.npmjs.com/settings/tokens -> Granular Access Token (Publish on twitchdropsminer-cli) -> add as NPM_TOKEN secret"
+            echo "::error::Classic Automation tokens still work until Jan 2027, then only staged publish via OIDC"
+          fi
+          if grep -q "ENEEDAUTH\|code E401" /tmp/publish-provenance.log; then
+            echo "::error::Authentication failed (ENEEDAUTH/E401). Check trusted publisher filename is exactly publish.yml and repository.url matches."
+          fi
           echo ""
-          echo "Attempt 2: npm publish --access public (NPM_TOKEN fallback)"
-          if [ -z "$NODE_AUTH_TOKEN" ]; then
-            echo "::error::Provenance failed and no NPM_TOKEN available. Publish cannot continue."
-            echo "::error::Fix: npmjs.com -> twitchdropsminer-cli -> Settings -> Trusted Publishers -> vocino/TwitchDropsMiner-CLI publish.yml"
-            echo "::error::OR: https://www.npmjs.com/settings/tokens -> Automation token -> add as NPM_TOKEN"
+          echo "Attempt 2: npm publish (NPM_TOKEN fallback)"
+          if [ -z "${{ secrets.NPM_TOKEN }}" ]; then
+            echo "::error::OIDC failed and no NPM_TOKEN available. Publish cannot continue."
+            echo "::error::See errors above for OIDC fix, or add NPM_TOKEN secret."
             tail -20 /tmp/publish-provenance.log
             exit 1
           fi
           echo "Writing NPM_TOKEN to ~/.npmrc for fallback..."
-          # setup-node may have written an empty .npmrc; overwrite with real token (masked by GitHub secrets)
-          echo "//registry.npmjs.org/:_authToken=$NODE_AUTH_TOKEN" > ~/.npmrc
-          npm publish --access public 2>&1 | tee /tmp/publish-token.log
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+          # Also ensure NPM_CONFIG_USERCONFIG token is cleared in favor of ~/.npmrc for fallback
+          npm publish 2>&1 | tee /tmp/publish-token.log
           TOKEN_EXIT=${PIPESTATUS[0]}
           echo "Token fallback exit code: $TOKEN_EXIT"
           if [ $TOKEN_EXIT -eq 0 ]; then
             echo "✅ Published $VER via NPM_TOKEN fallback (no provenance)!"
             exit 0
           fi
-          echo "::error::Both provenance and token publish failed."
-          echo "Provenance log tail:"
+          if grep -q "code EOTP" /tmp/publish-token.log || grep -q "one-time password" /tmp/publish-token.log; then
+            echo "::error::Token fallback also requires OTP — token is not an Automation bypass token or is invalid/expired."
+            echo "::error::Create a Granular Access Token with Publish on twitchdropsminer-cli, or Classic Automation (note Jan 2027 deprecation to staged-only)."
+            echo "::error::Verify with: npm whoami (with token) and npm view twitchdropsminer-cli version"
+          fi
+          echo "::error::Both OIDC and token publish failed."
+          echo "OIDC log tail:"
           tail -20 /tmp/publish-provenance.log
           echo "Token log tail:"
           tail -20 /tmp/publish-token.log

@@ -21,10 +21,18 @@
     "test": "npm run build && node --test dist/tests/index.js"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.14.0"
   },
   "author": "Travis Vocino <travis@vocino.com> (https://github.com/vocino)",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vocino/TwitchDropsMiner-CLI.git"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "dependencies": {
     "@commander-js/extra-typings": "^12.1.0",
     "pino": "^9.0.0",
