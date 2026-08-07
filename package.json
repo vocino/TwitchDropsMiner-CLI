@@ -8,8 +8,9 @@
   "main": "dist/cli/index.js",
   "files": [
     "README.md",
+    "LICENSE",
     "dist",
-    "docs/ops",
+    "examples",
     "resources/systemd"
   ],
   "type": "module",

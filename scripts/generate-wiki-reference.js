@@ -117,7 +117,7 @@ md += renderBlock('strategy','calendar / optimize / simulate') + '\n';
 md += renderBlock('rules','`tdm rules`') + '\n';
 md += '```bash\ntdm calendar\ntdm calendar --days 30 --active --upcoming --json\ntdm optimize --mode history|ending_soonest|low_avbl_first\ntdm simulate --hours 72\ntdm rules\ntdm rules --add \'viewers < 100 => skip\'\ntdm rules --remove 0\ntdm rules --clear\n```\n\nRelated: [[Strategy-Engine]]\n\n---\n\n## Other\n\n';
 md += renderBlock('healthcheck','`tdm healthcheck`');
-md += '```bash\ntdm healthcheck\ntdm healthcheck --json\n```\n\n---\n\n*Auto-generated skeleton — enhance with hand-written examples in wiki/CLI-Reference.md.*\n\n';
+md += '```bash\ntdm healthcheck\ntdm healthcheck --json\n```\n\n---\n\n*Auto-generated skeleton — enhance with hand-written examples in https://github.com/vocino/TwitchDropsMiner-CLI/wiki/CLI-Reference.*\n\n';
 md += '*Last synced: ' + version + ' — ' + date + '*\n';
 
 console.log(md);
