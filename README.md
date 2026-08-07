@@ -2,8 +2,6 @@
 
 Headless, npm-installable CLI that mines Twitch Drops on a server. No browser, no video, no GPU.
 
-Based on [DevilXD/TwitchDropsMiner](https://github.com/DevilXD/TwitchDropsMiner) — same GQL + spade + PubSub, rebuilt for Linux server use. Parity 0.6.1: 11 GQL ops synced 2026-07-30, MAX_CHANNELS 199, full spade payload, device cache, proxy, PubSub pool. Details in the wiki.
-
 ## Install
 
 ```bash
@@ -91,6 +89,10 @@ npm test            # tsc + node --test dist/tests/index.js
 npm run build
 ```
 
-Wiki lives in its own git: `https://github.com/vocino/TwitchDropsMiner-CLI.wiki.git` (branch `master`). Edit it directly, it auto-syncs CLI-Reference on push.
+Wiki lives in its own git: `https://github.com/vocino/TwitchDropsMiner-CLI.wiki.git` (branch `master`). Edit it directly.
+
+## Credits
+
+Original idea from [DevilXD/TwitchDropsMiner](https://github.com/DevilXD/TwitchDropsMiner). This is an independent TypeScript rewrite for headless server use — different codebase, same Drop-mining concept.
 
 License MIT.
