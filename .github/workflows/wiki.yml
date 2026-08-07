@@ -1,0 +1,48 @@
+name: Sync wiki
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "wiki/**"
+      - "docs/**"
+      - "src/**"
+      - ".github/workflows/wiki.yml"
+      - "scripts/sync-wiki.sh"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync-wiki:
+    runs-on: ubuntu-latest
+    if: github.repository == 'vocino/TwitchDropsMiner-CLI'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Check if wiki/ changed
+        id: check
+        run: |
+          if git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -qE '^wiki/|^docs/parity|^docs/ops/'; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            # For workflow_dispatch or first push, sync anyway if wiki/ exists
+            if [ -d wiki ]; then echo "changed=true" >> $GITHUB_OUTPUT; else echo "changed=false" >> $GITHUB_OUTPUT; fi
+          fi
+          echo "wiki files: $(ls wiki/ 2>/dev/null | wc -l)"
+
+      - name: Sync wiki/ to wiki.git
+        if: steps.check.outputs.changed == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config --global user.name "Travis Vocino"
+          git config --global user.email "travis@vocino.com"
+          bash scripts/sync-wiki.sh --message "docs(wiki): sync from main ${{ github.sha }}"
+
+      - name: No changes
+        if: steps.check.outputs.changed != 'true'
+        run: echo "No wiki-relevant changes — skipping sync."

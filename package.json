@@ -18,7 +18,9 @@
     "prepublishOnly": "npm run build",
     "dev": "ts-node src/cli/index.ts",
     "lint": "echo \"no linter configured\"",
-    "test": "npm run build && node --test dist/tests/index.js"
+    "test": "npm run build && node --test dist/tests/index.js",
+    "wiki:sync": "bash scripts/sync-wiki.sh",
+    "wiki:sync:dry": "bash scripts/sync-wiki.sh --dry-run"
   },
   "engines": {
     "node": ">=22.14.0"

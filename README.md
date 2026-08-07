@@ -279,6 +279,12 @@ Releases via Conventional Commits → release-please:
 
 Tag `vX.Y.Z` triggers `npm publish` via OIDC trusted publisher with provenance (auto via `publishConfig`). Requires Node `>=22.14.0` per `engines`. Current: `0.6.1`
 
+## Documentation
+
+- **Wiki (user-facing, always current):** [Home](https://github.com/vocino/TwitchDropsMiner-CLI/wiki) — [Getting Started](https://github.com/vocino/TwitchDropsMiner-CLI/wiki/Getting-Started) · [Installation](https://github.com/vocino/TwitchDropsMiner-CLI/wiki/Installation) · [Authentication](https://github.com/vocino/TwitchDropsMiner-CLI/wiki/Authentication) · [Configuration](https://github.com/vocino/TwitchDropsMiner-CLI/wiki/Configuration) · [Running the Miner](https://github.com/vocino/TwitchDropsMiner-CLI/wiki/Running-the-Miner) · [Service Mode](https://github.com/vocino/TwitchDropsMiner-CLI/wiki/Service-Mode) · [Observability](https://github.com/vocino/TwitchDropsMiner-CLI/wiki/Observability) · [Strategy Engine](https://github.com/vocino/TwitchDropsMiner-CLI/wiki/Strategy-Engine) · [Homelab Integrations](https://github.com/vocino/TwitchDropsMiner-CLI/wiki/Homelab-Integrations) · [Architecture](https://github.com/vocino/TwitchDropsMiner-CLI/wiki/Architecture) · [Troubleshooting](https://github.com/vocino/TwitchDropsMiner-CLI/wiki/Troubleshooting) · [Development](https://github.com/vocino/TwitchDropsMiner-CLI/wiki/Development) · [FAQ](https://github.com/vocino/TwitchDropsMiner-CLI/wiki/FAQ)
+- **Repo docs (source):** `docs/parity.md` + `docs/ops/*.md` — deep ops reference. Wiki is the front door; repo docs are the source for ops detail.
+- **Wiki sync:** wiki sources live in `wiki/` and are pushed to `https://github.com/vocino/TwitchDropsMiner-CLI.wiki.git` (branch `master`) via `scripts/sync-wiki.sh` and `.github/workflows/wiki.yml` (on `push` to `main` when `wiki/**` or `docs/**` change, plus `workflow_dispatch`). When you update code or `docs/`, update `wiki/` in the same PR: `npm run wiki:sync -- --dry-run` to preview, `npm run wiki:sync` to push locally. See the [Development wiki page](https://github.com/vocino/TwitchDropsMiner-CLI/wiki/Development).
+
 ## Credits
 
 This CLI is based on [**TwitchDropsMiner**](https://github.com/DevilXD/TwitchDropsMiner) by [DevilXD](https://github.com/DevilXD) — the original desktop app that mines Twitch drops without streaming video. TwitchDropsMiner-CLI reimplements its behavior (inventory, spade beacons, PubSub, game priority, auto-claim) for headless and server use.

@@ -1,0 +1,1 @@
+> **TwitchDropsMiner-CLI** — headless fork of [DevilXD/TwitchDropsMiner](https://github.com/DevilXD/TwitchDropsMiner) for servers. `npm i -g twitchdropsminer-cli` → `tdm doctor` → `tdm run`. [Main repo](https://github.com/vocino/TwitchDropsMiner-CLI) · [npm](https://www.npmjs.com/package/twitchdropsminer-cli)
