@@ -13,16 +13,8 @@ export interface Channel {
   streamId?: string;
 }
 
-/**
- * Special game names that are earnable anywhere (fallback when gameId not available).
- * IRL / Just Chatting variants — name match when gameId missing.
- */
-const SPECIAL_GAME_NAMES_LOWER = new Set(["irl", "irl - real life", "just chatting"]);
-
 function isSpecialGame(channel: Channel): boolean {
-  if (channel.gameId && isSpecialGameId(channel.gameId)) return true;
-  if (channel.gameName && SPECIAL_GAME_NAMES_LOWER.has(channel.gameName.toLowerCase())) return true;
-  return false;
+  return !!(channel.gameId && isSpecialGameId(channel.gameId));
 }
 
 export function canWatchChannel(channel: Channel, wantedGames: string[]): boolean {
