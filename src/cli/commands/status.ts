@@ -3,6 +3,8 @@ import { loadSessionState } from "../../state/sessionState.js";
 import { isMinerLockHeldByLiveProcess } from "../../core/runtime.js";
 import { getHistoryPaths, summarizeHistory } from "../../ops/history.js";
 import { getMetricsJSON } from "../../ops/metrics.js";
+import { MAX_CHANNELS, MAX_WEBSOCKETS, WS_TOPICS_LIMIT } from "../../core/constants.js";
+import { GQL_OPERATIONS } from "../../integrations/gqlOperations.js";
 
 const SESSION_FRESH_MS = 120_000;
 
@@ -53,6 +55,7 @@ export const statusCommand = new Command("status")
       metrics = getMetricsJSON();
     } catch {}
 
+    const gqlOps = Object.keys(GQL_OPERATIONS).length;
     const status = {
       running,
       lockHeld,
@@ -65,9 +68,10 @@ export const statusCommand = new Command("status")
       sessionAgeMs: session?.updatedAt ? Date.now() - new Date(session.updatedAt).getTime() : null,
       stale: session?.updatedAt ? Date.now() - new Date(session.updatedAt).getTime() > SESSION_FRESH_MS : null,
       parity: {
-        maxChannels: 199,
-        maxWebsockets: 8,
-        pool: "8x50 sharded"
+        maxChannels: MAX_CHANNELS,
+        maxWebsockets: MAX_WEBSOCKETS,
+        pool: `${MAX_WEBSOCKETS}x${WS_TOPICS_LIMIT} sharded`,
+        gqlOps
       },
       observability: {
         history: historySummary,
@@ -86,7 +90,7 @@ export const statusCommand = new Command("status")
         `Running=${status.running}, lock=${status.lockHeld}, state=${status.state}, channel=${status.watchedChannel ?? "-"} (id=${status.watchedChannelId ?? "-"}), activeDrop=${status.activeDrop ?? "-"}, updated=${status.updatedAt ?? "-"}${v}`
       );
       // eslint-disable-next-line no-console
-      console.log(`Parity: MAX_CHANNELS=199 pool=8x50 GQL=11 ops spade=upstream-aligned`);
+      console.log(`Parity: MAX_CHANNELS=${MAX_CHANNELS} pool=${MAX_WEBSOCKETS}x${WS_TOPICS_LIMIT} GQL=${gqlOps} ops spade=upstream-aligned`);
       if (historySummary) {
         // eslint-disable-next-line no-console
         console.log(
