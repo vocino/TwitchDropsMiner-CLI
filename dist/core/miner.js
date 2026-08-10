@@ -28,7 +28,7 @@ export class Miner {
     channels = [];
     watchingChannel = null;
     userId = null;
-    lastInventoryFetchHour = 0;
+    lastInventoryFetchMs = 0;
     spadeUrlCache = new Map();
     pubsub = null;
     dryRun = false;
@@ -112,17 +112,17 @@ export class Miner {
         });
         this.maintenance.start(60 * 1000, async () => {
             const now = Date.now();
-            const currentHour = Math.floor(now / (60 * 60 * 1000));
-            if (currentHour > this.lastInventoryFetchHour) {
-                logger.info("Maintenance: hourly inventory refresh");
-                this.lastInventoryFetchHour = currentHour;
+            if (now - this.lastInventoryFetchMs >= 15 * 60 * 1000) {
+                logger.info("Maintenance: periodic inventory refresh (15m)");
+                this.lastInventoryFetchMs = now;
                 this.state.setState("INVENTORY_FETCH");
             }
             // Also refresh every 5 min if any drop is claimable in memory but not yet claimed
-            // (safety net for missed PubSub)
+            // (safety net for missed PubSub) — also catches drops that reached 100%
+            // but lack dropInstanceId (canClaim is false until inventory populates it)
             const currentMinute = Math.floor(now / (60 * 1000));
             if (currentMinute % 5 === 0) {
-                const hasClaimable = this.campaigns.some((c) => c.drops.some((d) => d.canClaim));
+                const hasClaimable = this.campaigns.some((c) => c.drops.some((d) => d.canClaim || (!d.isClaimed && d.remainingMinutes === 0)));
                 if (hasClaimable) {
                     logger.info("Maintenance: found claimable drops, triggering inventory+claim");
                     this.state.setState("INVENTORY_FETCH");
@@ -280,7 +280,7 @@ export class Miner {
                     if (drop) {
                         drop.updateMinutes(minutes);
                         logger.debug({ instanceId, minutes }, "Drop progress from PubSub");
-                        // If progress now completes the drop, try claim immediately (like upstream) instead of waiting hourly
+                        // If progress now completes the drop, try claim immediately instead of waiting for next inventory poll
                         if (drop.canClaim && drop.dropInstanceId) {
                             logger.info({ instanceId, dropName: drop.name }, "Drop progress complete — claiming immediately via PubSub trigger");
                             // Fire async claim — don't block PubSub handler
@@ -307,6 +307,22 @@ export class Miner {
                                     logger.warn({ err, instanceId }, "Claim via PubSub progress failed, will retry on next inventory fetch");
                                 }
                             })();
+                        }
+                        else if (!drop.isClaimed && drop.remainingMinutes === 0) {
+                            // Progress reports 100% but canClaim is false because dropInstanceId is still null
+                            // (inventory hasn't populated it since the drop became claimable). Trigger inventory
+                            // fetch so we can obtain the instanceId and claim within minutes.
+                            logger.info({ instanceId, dropName: drop.name, remainingMinutes: drop.remainingMinutes }, "Drop progress at 100% but instanceId missing — triggering inventory fetch");
+                            this.state.setState("INVENTORY_FETCH");
+                        }
+                    }
+                    else {
+                        // PubSub references an instanceId we don't have (next drop in chain
+                        // whose dropInstanceId is still null locally). Refresh inventory to learn it.
+                        const anyUnclaimedAt100 = this.campaigns.some((c) => c.drops.some((d) => !d.isClaimed && d.remainingMinutes === 0));
+                        if (anyUnclaimedAt100) {
+                            logger.info("PubSub progress for unknown instance — drop at 100% without claim path, triggering inventory fetch");
+                            this.state.setState("INVENTORY_FETCH");
                         }
                     }
                 }
@@ -371,7 +387,7 @@ export class Miner {
         try {
             if (this.state.state === "INVENTORY_FETCH") {
                 await this.fetchInventory(token);
-                this.lastInventoryFetchHour = Math.floor(Date.now() / (60 * 60 * 1000));
+                this.lastInventoryFetchMs = Date.now();
                 this.state.setState("GAMES_UPDATE");
             }
             if (this.state.state === "GAMES_UPDATE") {
