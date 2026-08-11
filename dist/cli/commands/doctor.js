@@ -5,6 +5,7 @@ import { request } from "undici";
 import { EXIT_ENV_UNSUPPORTED, EXIT_OK } from "../contracts/exitCodes.js";
 import { loadConfig, configPath } from "../../config/store.js";
 import { GQL_OPERATIONS } from "../../integrations/gqlOperations.js";
+import { MAX_CHANNELS, MAX_WEBSOCKETS, WS_TOPICS_LIMIT } from "../../core/constants.js";
 export const doctorCommand = new Command("doctor")
     .description("Run environment checks for TwitchDropsMiner CLI")
     .option("--json", "Output JSON", false)
@@ -92,13 +93,13 @@ export const doctorCommand = new Command("doctor")
         warnings,
         checks,
         parity: {
-            maxChannels: 199,
-            maxWebsockets: 8,
-            wsTopicsLimit: 50,
+            maxChannels: MAX_CHANNELS,
+            maxWebsockets: MAX_WEBSOCKETS,
+            wsTopicsLimit: WS_TOPICS_LIMIT,
             gqlOps: Object.keys(GQL_OPERATIONS).length,
             preconditionsMet: true,
             spadeParity: ["game", "game_id", "client_time", "is_live", "minutes_logged"],
-            pool: "8x50 sharded"
+            pool: `${MAX_WEBSOCKETS}x${WS_TOPICS_LIMIT} sharded`
         }
     };
     if (isJson) {
