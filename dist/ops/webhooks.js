@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { logger } from "../core/runtime.js";
-import { loadConfig } from "../config/store.js";
+import { loadConfig, saveConfig } from "../config/store.js";
 function stateDir() {
     const dir = path.join(os.homedir(), ".local", "state", "tdm");
     fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
@@ -33,9 +33,11 @@ export function loadHooks() {
 }
 export function saveHooks(hooks) {
     fs.writeFileSync(hooksPath(), JSON.stringify(hooks, null, 2), { mode: 0o600 });
-    // also try save to config
+    // also persist to config.json for single-source truth
     try {
-        const { loadConfig: lc, saveConfig } = require("../config/store.js");
+        const cfg = loadConfig();
+        cfg.webhooks = hooks;
+        saveConfig(cfg);
     }
     catch { }
 }

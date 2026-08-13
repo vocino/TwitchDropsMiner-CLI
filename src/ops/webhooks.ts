@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { logger } from "../core/runtime.js";
-import { loadConfig } from "../config/store.js";
+import { loadConfig, saveConfig } from "../config/store.js";
 
 export interface WebhookHooks {
   onClaim?: string;
@@ -53,9 +53,11 @@ export function loadHooks(): WebhookHooks {
 
 export function saveHooks(hooks: WebhookHooks): void {
   fs.writeFileSync(hooksPath(), JSON.stringify(hooks, null, 2), { mode: 0o600 });
-  // also try save to config
+  // also persist to config.json for single-source truth
   try {
-    const { loadConfig: lc, saveConfig } = require("../config/store.js") as any;
+    const cfg = loadConfig() as any;
+    cfg.webhooks = hooks;
+    saveConfig(cfg);
   } catch {}
 }
 
