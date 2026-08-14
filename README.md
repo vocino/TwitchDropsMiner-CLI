@@ -1,37 +1,24 @@
 # TwitchDropsMiner-CLI
 
-Headless, npm-installable CLI that mines Twitch Drops on a server. No browser, no video, no GPU.
+Headless CLI that mines Twitch Drops on a server. No browser, no video, no GPU.
 
-## Docker — quickest, no Node needed
+## Install
+
+Docker — no Node on host (recommended for homelab / NAS):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/vocino/TwitchDropsMiner-CLI/main/docker-compose.yml -o docker-compose.yml
-docker compose run --rm tdm auth login --no-open   # prints URL + code, enter on phone / desktop
+docker compose run --rm tdm auth login --no-open   # URL + code, enter on phone
 docker compose up -d
-docker compose logs -f
 ```
 
-Update when I ship fixes (almost daily):
+Update: `docker compose pull && docker compose up -d` — `:latest` rebuilds on every push to main.
 
-```bash
-docker compose pull && docker compose up -d
-```
-
-Why Docker: single volume for config + state, `restart: unless-stopped`, auto-pulls latest on `main`, multi-arch amd64/arm64, no Node on host.
-
-`ghcr.io/vocino/twitchdropsminer-cli:latest` is rebuilt on every push to main via GitHub Actions, plus `v*` tags track releases.
-
-## Install (npm)
+npm:
 
 ```bash
 npm install -g twitchdropsminer-cli
 tdm doctor
-```
-
-From GitHub:
-
-```bash
-npm install -g github:vocino/TwitchDropsMiner-CLI
 ```
 
 From source:
@@ -43,7 +30,7 @@ npm ci && npm run build
 npx tdm doctor
 ```
 
-Requires Node >=22.14.0.
+Requires Node `>=22.14.0`.
 
 ## Use
 
@@ -62,6 +49,8 @@ tdm service install --user --autostart
 tdm service start
 tdm logs --follow
 ```
+
+Docker: `docker compose logs -f`
 
 Check progress:
 
@@ -98,7 +87,8 @@ src/integrations/   gqlClient, gqlOperations 11 ops, twitchPubSub pool 8*50->199
 src/domain/         inventory chains, channel
 src/config/         zod schema, XDG store 600
 src/state/          authStore, deviceStore, sessionState
-examples/           glance-tdm-widget.yml
+examples/           glance-tdm-widget.yml, docker-compose.yml
+Dockerfile          multi-stage node:22-alpine, non-root
 ```
 
 ## Develop
