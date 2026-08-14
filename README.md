@@ -2,7 +2,26 @@
 
 Headless, npm-installable CLI that mines Twitch Drops on a server. No browser, no video, no GPU.
 
-## Install
+## Docker — quickest, no Node needed
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vocino/TwitchDropsMiner-CLI/main/docker-compose.yml -o docker-compose.yml
+docker compose run --rm tdm auth login --no-open   # prints URL + code, enter on phone / desktop
+docker compose up -d
+docker compose logs -f
+```
+
+Update when I ship fixes (almost daily):
+
+```bash
+docker compose pull && docker compose up -d
+```
+
+Why Docker: single volume for config + state, `restart: unless-stopped`, auto-pulls latest on `main`, multi-arch amd64/arm64, no Node on host.
+
+`ghcr.io/vocino/twitchdropsminer-cli:latest` is rebuilt on every push to main via GitHub Actions, plus `v*` tags track releases.
+
+## Install (npm)
 
 ```bash
 npm install -g twitchdropsminer-cli

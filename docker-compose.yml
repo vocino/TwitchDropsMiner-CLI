@@ -1,0 +1,15 @@
+services:
+  tdm:
+    image: ghcr.io/vocino/twitchdropsminer-cli:latest
+    container_name: tdm
+    restart: unless-stopped
+    volumes:
+      - tdm-config:/home/node/.config/tdm
+      - tdm-state:/home/node/.local/state/tdm
+    # optional: load env for tokens / webhooks, uncomment if you use .env
+    # env_file: .env
+    command: run --verbose
+
+volumes:
+  tdm-config:
+  tdm-state:
