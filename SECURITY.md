@@ -1,8 +1,8 @@
 ## Security Policy
 
-### No Secrets in Repo
+### No secrets in repo
 
-**This is a PUBLIC repo. Never commit secrets.**
+This is a PUBLIC repo. Never commit secrets.
 
 Never commit:
 - Twitch auth tokens, device IDs, session files (`auth.json`, `device.json`)
@@ -11,16 +11,16 @@ Never commit:
 - Real internal IPs or infrastructure paths
 - Password or credential manager references
 
-### How We Enforce
+### How we enforce
 
-**Local (before push, dev machine only):**
+Local - before push, dev machine only:
 - Local guard scripts — run automatically on every push in autonomous loop
   - Checks for secret tokens, private infrastructure references, internal signals
   - Real private values live **only** in local guard scripts outside any repo
   - Public repo never contains actual private values
 
-**CI (public, in this repo):**
-- `.github/workflows/security.yml` — generic scans only
+CI - public, in this repo:
+- `.github/workflows/security.yml` - generic scans only
   - No private values in workflow file — only checks for common leak categories
   - Real private checks stay local, not in CI, to avoid leaking via the check itself
 - Dependency audit `npm audit --audit-level=high`
@@ -28,14 +28,14 @@ Never commit:
 **Git:**
 - `.gitignore` blocks sensitive files — they live in XDG state/config dirs, not repo
 
-### Why Public CI Doesn't List Private Values
+### Why public CI doesn't list private values
 
 Listing private IPs/paths in a public `security.yml` to scan for them is itself a leak.
 So:
 - Public CI: generic patterns only (e.g., subnet detection, token formats)
 - Local guards (outside repo, not committed): specific values for your homelab
 
-### If You Accidentally Leak
+### If you accidentally leak
 
 1. Immediately revoke the secret (regenerate token, rotate credential)
 2. `git rm` file, commit, push
