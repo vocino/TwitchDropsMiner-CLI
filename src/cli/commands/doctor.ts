@@ -106,16 +106,16 @@ export const doctorCommand = new Command("doctor")
       console.log(JSON.stringify(result, null, 2));
     } else {
       for (const [k, v] of Object.entries(result.checks)) {
-        console.log(`✔ ${k}: ${v}`);
+        console.log(`ok ${k}: ${v}`);
       }
       if (result.parity) {
-        console.log(`✔ parity: MAX_CHANNELS=${result.parity.maxChannels} pool=${result.parity.pool} GQL=${result.parity.gqlOps} ops`);
+        console.log(`ok parity: MAX_CHANNELS=${result.parity.maxChannels} pool=${result.parity.pool} GQL=${result.parity.gqlOps} ops`);
       }
       for (const w of result.warnings) {
-        console.warn(`⚠ ${w}`);
+        console.warn(`warn ${w}`);
       }
       for (const msg of result.issues) {
-        console.error(`✖ ${msg}`);
+        console.error(`err ${msg}`);
       }
       if (result.ok) {
         console.log("Environment looks OK for TwitchDropsMiner CLI.");
