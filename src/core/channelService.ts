@@ -8,8 +8,6 @@ import { mapWithConcurrency } from "./concurrency.js";
 import { loadConfig } from "../config/store.js";
 import { MAX_CHANNELS } from "./constants.js";
 
-export { MAX_CHANNELS };
-
 type Json = Record<string, unknown>;
 
 export function parseGameDirectoryResponse(

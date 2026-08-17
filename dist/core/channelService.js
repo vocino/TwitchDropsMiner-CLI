@@ -5,7 +5,6 @@ import { logger } from "./runtime.js";
 import { mapWithConcurrency } from "./concurrency.js";
 import { loadConfig } from "../config/store.js";
 import { MAX_CHANNELS } from "./constants.js";
-export { MAX_CHANNELS };
 export function parseGameDirectoryResponse(response, gameName, aclBased) {
     const data = response?.data;
     const game = data?.game;
