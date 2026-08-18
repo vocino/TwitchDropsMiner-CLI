@@ -21,10 +21,12 @@ export const doctorCommand = new Command("doctor")
     else {
         checks.platform = platform;
     }
-    const [majorStr] = process.versions.node.split(".");
+    const [majorStr, minorStr] = process.versions.node.split(".");
     const major = Number(majorStr);
-    if (!Number.isNaN(major) && major < 20) {
-        issues.push(`Node.js version ${process.versions.node} is below the required >=20.`);
+    const minor = Number(minorStr);
+    const belowMin = major < 22 || (major === 22 && minor < 14);
+    if (!Number.isNaN(major) && belowMin) {
+        issues.push(`Node.js version ${process.versions.node} is below the required >=22.14.`);
     }
     else {
         checks.node = process.versions.node;
@@ -107,16 +109,16 @@ export const doctorCommand = new Command("doctor")
     }
     else {
         for (const [k, v] of Object.entries(result.checks)) {
-            console.log(`✔ ${k}: ${v}`);
+            console.log(`ok ${k}: ${v}`);
         }
         if (result.parity) {
-            console.log(`✔ parity: MAX_CHANNELS=${result.parity.maxChannels} pool=${result.parity.pool} GQL=${result.parity.gqlOps} ops`);
+            console.log(`ok parity: MAX_CHANNELS=${result.parity.maxChannels} pool=${result.parity.pool} GQL=${result.parity.gqlOps} ops`);
         }
         for (const w of result.warnings) {
-            console.warn(`⚠ ${w}`);
+            console.warn(`warn ${w}`);
         }
         for (const msg of result.issues) {
-            console.error(`✖ ${msg}`);
+            console.error(`err ${msg}`);
         }
         if (result.ok) {
             console.log("Environment looks OK for TwitchDropsMiner CLI.");

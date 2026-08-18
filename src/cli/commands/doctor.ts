@@ -23,10 +23,12 @@ export const doctorCommand = new Command("doctor")
       checks.platform = platform;
     }
 
-    const [majorStr] = process.versions.node.split(".");
+    const [majorStr, minorStr] = process.versions.node.split(".");
     const major = Number(majorStr);
-    if (!Number.isNaN(major) && major < 20) {
-      issues.push(`Node.js version ${process.versions.node} is below the required >=20.`);
+    const minor = Number(minorStr);
+    const belowMin = major < 22 || (major === 22 && minor < 14);
+    if (!Number.isNaN(major) && belowMin) {
+      issues.push(`Node.js version ${process.versions.node} is below the required >=22.14.`);
     } else {
       checks.node = process.versions.node;
     }
