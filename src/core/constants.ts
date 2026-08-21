@@ -16,7 +16,7 @@ export const MAX_CHANNELS = Math.floor(MAX_TOPICS / TOPICS_PER_CHANNEL);
 
 export const TWITCH_ANDROID_CLIENT_ID = "kd1unb4b3q4t58fwlpcbzcbnm76a8fp";
 export const TWITCH_ANDROID_USER_AGENT =
-  "Dalvik/2.1.0 (Linux; Android 16; SM-S911B Build/TP1A.220624.014) tv.twitch.android.app/25.3.0/2503006";
+  "Dalvik/2.1.0 (Linux; U; Android 16; SM-S911B Build/TP1A.220624.014) tv.twitch.android.app/25.3.0/2503006";
 
 // Special games that can be earned watching ANY game — upstream DevilXD utils.Game.SPECIAL_GAME_IDS
 // Matches inventory.py {509663, 509672} (Just Chatting / IRL variants)
