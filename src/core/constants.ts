@@ -15,8 +15,18 @@ export const MAX_TOPICS = MAX_WEBSOCKETS * WS_TOPICS_LIMIT - BASE_PUBSUB_TOPICS;
 export const MAX_CHANNELS = Math.floor(MAX_TOPICS / TOPICS_PER_CHANNEL);
 
 export const TWITCH_ANDROID_CLIENT_ID = "kd1unb4b3q4t58fwlpcbzcbnm76a8fp";
+// Upstream DevilXD ClientType.ANDROID_APP rotates 7 device UAs via random.choice — match full list
+export const TWITCH_ANDROID_USER_AGENTS = [
+  "Dalvik/2.1.0 (Linux; U; Android 16; SM-S911B Build/TP1A.220624.014) tv.twitch.android.app/25.3.0/2503006",
+  "Dalvik/2.1.0 (Linux; U; Android 16; SM-S938B Build/BP2A.250605.031) tv.twitch.android.app/25.3.0/2503006",
+  "Dalvik/2.1.0 (Linux; Android 16; SM-X716N Build/UP1A.231005.007) tv.twitch.android.app/25.3.0/2503006",
+  "Dalvik/2.1.0 (Linux; U; Android 15; SM-G990B Build/AP3A.240905.015.A2) tv.twitch.android.app/25.3.0/2503006",
+  "Dalvik/2.1.0 (Linux; U; Android 15; SM-G970F Build/AP3A.241105.008) tv.twitch.android.app/25.3.0/2503006",
+  "Dalvik/2.1.0 (Linux; U; Android 15; SM-A566E Build/AP3A.240905.015.A2) tv.twitch.android.app/25.3.0/2503006",
+  "Dalvik/2.1.0 (Linux; U; Android 14; SM-X306B Build/UP1A.231005.007) tv.twitch.android.app/25.3.0/2503006"
+] as const;
 export const TWITCH_ANDROID_USER_AGENT =
-  "Dalvik/2.1.0 (Linux; U; Android 16; SM-S911B Build/TP1A.220624.014) tv.twitch.android.app/25.3.0/2503006";
+  TWITCH_ANDROID_USER_AGENTS[Math.floor(Math.random() * TWITCH_ANDROID_USER_AGENTS.length)];
 
 // Special games that can be earned watching ANY game — upstream DevilXD utils.Game.SPECIAL_GAME_IDS
 // Matches inventory.py {509663, 509672} (Just Chatting / IRL variants)
