@@ -1,7 +1,7 @@
 import { request } from "undici";
 import { gzipSync } from "node:zlib";
 import { Channel } from "../domain/channel.js";
-import { TWITCH_ANDROID_CLIENT_ID, TWITCH_ANDROID_USER_AGENT } from "../core/constants.js";
+import { TWITCH_ANDROID_CLIENT_ID, getAndroidUserAgent } from "../core/constants.js";
 
 const SPADE_PATTERN = /"(?:beacon|spade)_?url":\s*"(https:\/\/[.\w\-/]+\.ts(?:\?allow_stream=true)?)"/i;
 const SETTINGS_PATTERN = /src="(https:\/\/[\w.]+\/config\/settings\.[0-9a-f]{32}\.js)"/i;
@@ -121,7 +121,7 @@ export async function getSpadeUrl(
     method: "GET",
     headers: {
       "Client-Id": TWITCH_ANDROID_CLIENT_ID,
-      "User-Agent": TWITCH_ANDROID_USER_AGENT,
+      "User-Agent": getAndroidUserAgent(),
       Authorization: `OAuth ${accessToken}`
     } as Record<string, string>
   });
@@ -140,7 +140,7 @@ export async function getSpadeUrl(
     method: "GET",
     headers: {
       "Client-Id": TWITCH_ANDROID_CLIENT_ID,
-      "User-Agent": TWITCH_ANDROID_USER_AGENT,
+      "User-Agent": getAndroidUserAgent(),
       Authorization: `OAuth ${accessToken}`
     } as Record<string, string>
   });
@@ -167,7 +167,7 @@ export async function sendSpadePost(
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
       "Client-Id": TWITCH_ANDROID_CLIENT_ID,
-      "User-Agent": TWITCH_ANDROID_USER_AGENT,
+      "User-Agent": getAndroidUserAgent(),
       Authorization: `OAuth ${accessToken}`
     } as Record<string, string>,
     body

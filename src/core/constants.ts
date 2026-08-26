@@ -25,8 +25,11 @@ export const TWITCH_ANDROID_USER_AGENTS = [
   "Dalvik/2.1.0 (Linux; U; Android 15; SM-A566E Build/AP3A.240905.015.A2) tv.twitch.android.app/25.3.0/2503006",
   "Dalvik/2.1.0 (Linux; U; Android 14; SM-X306B Build/UP1A.231005.007) tv.twitch.android.app/25.3.0/2503006"
 ] as const;
-export const TWITCH_ANDROID_USER_AGENT =
-  TWITCH_ANDROID_USER_AGENTS[Math.floor(Math.random() * TWITCH_ANDROID_USER_AGENTS.length)];
+export function getAndroidUserAgent(): string {
+  return TWITCH_ANDROID_USER_AGENTS[Math.floor(Math.random() * TWITCH_ANDROID_USER_AGENTS.length)];
+}
+// Per-process pick (legacy) — new code should call getAndroidUserAgent() per request for upstream parity
+export const TWITCH_ANDROID_USER_AGENT = getAndroidUserAgent();
 
 // Special games that can be earned watching ANY game — upstream DevilXD utils.Game.SPECIAL_GAME_IDS
 // Matches inventory.py {509663, 509672} (Just Chatting / IRL variants)

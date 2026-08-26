@@ -1,6 +1,6 @@
 import { request } from "undici";
 import { gzipSync } from "node:zlib";
-import { TWITCH_ANDROID_CLIENT_ID, TWITCH_ANDROID_USER_AGENT } from "../core/constants.js";
+import { TWITCH_ANDROID_CLIENT_ID, getAndroidUserAgent } from "../core/constants.js";
 const SPADE_PATTERN = /"(?:beacon|spade)_?url":\s*"(https:\/\/[.\w\-/]+\.ts(?:\?allow_stream=true)?)"/i;
 const SETTINGS_PATTERN = /src="(https:\/\/[\w.]+\/config\/settings\.[0-9a-f]{32}\.js)"/i;
 const DEFAULT_SPADE_BASE = "https://spade.twitch.tv";
@@ -80,7 +80,7 @@ export async function getSpadeUrl(channelLogin, accessToken) {
         method: "GET",
         headers: {
             "Client-Id": TWITCH_ANDROID_CLIENT_ID,
-            "User-Agent": TWITCH_ANDROID_USER_AGENT,
+            "User-Agent": getAndroidUserAgent(),
             Authorization: `OAuth ${accessToken}`
         }
     });
@@ -98,7 +98,7 @@ export async function getSpadeUrl(channelLogin, accessToken) {
         method: "GET",
         headers: {
             "Client-Id": TWITCH_ANDROID_CLIENT_ID,
-            "User-Agent": TWITCH_ANDROID_USER_AGENT,
+            "User-Agent": getAndroidUserAgent(),
             Authorization: `OAuth ${accessToken}`
         }
     });
@@ -120,7 +120,7 @@ export async function sendSpadePost(spadeUrl, payload, accessToken) {
         headers: {
             "Content-Type": "application/x-www-form-urlencoded",
             "Client-Id": TWITCH_ANDROID_CLIENT_ID,
-            "User-Agent": TWITCH_ANDROID_USER_AGENT,
+            "User-Agent": getAndroidUserAgent(),
             Authorization: `OAuth ${accessToken}`
         },
         body

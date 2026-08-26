@@ -1,5 +1,5 @@
 import { httpJson } from "./httpClient.js";
-import { TWITCH_GQL_URL, TWITCH_ANDROID_CLIENT_ID, TWITCH_ANDROID_USER_AGENT } from "../core/constants.js";
+import { TWITCH_GQL_URL, TWITCH_ANDROID_CLIENT_ID, getAndroidUserAgent } from "../core/constants.js";
 import { GqlOperation, gqlPayload, applyGqlHashOverride } from "./gqlOperations.js";
 import { loadConfig } from "../config/store.js";
 import { deviceHeaders } from "../state/deviceStore.js";
@@ -64,7 +64,7 @@ export async function gqlRequest<T = unknown>(
     proxy: cfg.proxy || undefined,
     headers: {
       "Client-Id": TWITCH_ANDROID_CLIENT_ID,
-      "User-Agent": TWITCH_ANDROID_USER_AGENT,
+      "User-Agent": getAndroidUserAgent(),
       Authorization: `OAuth ${accessToken}`,
       ...dHeaders
     }
