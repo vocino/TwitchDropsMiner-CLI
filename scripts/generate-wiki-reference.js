@@ -10,7 +10,7 @@ const PKG_PATH = path.join(ROOT, 'package.json');
 function read(p) { try { return fs.readFileSync(p, 'utf8'); } catch { return ''; } }
 
 function getVersion() {
-  try { const pkg = JSON.parse(read(PKG_PATH)); return pkg.version || '0.6.1'; } catch { return '0.6.1'; }
+  try { const pkg = JSON.parse(read(PKG_PATH)); return pkg.version || '0.6.2'; } catch { return '0.6.2'; }
 }
 
 function extractDescriptions(fileContent) {
