@@ -1,4 +1,4 @@
-import { TWITCH_ANDROID_CLIENT_ID, TWITCH_ANDROID_USER_AGENT, TWITCH_OAUTH_DEVICE_URL, TWITCH_OAUTH_TOKEN_URL } from "../core/constants.js";
+import { TWITCH_ANDROID_CLIENT_ID, TWITCH_OAUTH_DEVICE_URL, TWITCH_OAUTH_TOKEN_URL, getAndroidUserAgent } from "../core/constants.js";
 import { request } from "undici";
 function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
@@ -15,7 +15,7 @@ export async function startDeviceAuth() {
         headers: {
             "Content-Type": "application/x-www-form-urlencoded",
             "Client-Id": TWITCH_ANDROID_CLIENT_ID,
-            "User-Agent": TWITCH_ANDROID_USER_AGENT
+            "User-Agent": getAndroidUserAgent()
         }
     });
     const text = await resp.body.text();
@@ -44,7 +44,7 @@ export async function pollDeviceToken(start) {
                 headers: {
                     "Content-Type": "application/x-www-form-urlencoded",
                     "Client-Id": TWITCH_ANDROID_CLIENT_ID,
-                    "User-Agent": TWITCH_ANDROID_USER_AGENT
+                    "User-Agent": getAndroidUserAgent()
                 }
             });
             const text = await resp.body.text();

@@ -28,8 +28,6 @@ export const TWITCH_ANDROID_USER_AGENTS = [
 export function getAndroidUserAgent(): string {
   return TWITCH_ANDROID_USER_AGENTS[Math.floor(Math.random() * TWITCH_ANDROID_USER_AGENTS.length)];
 }
-// Per-process pick (legacy) — new code should call getAndroidUserAgent() per request for upstream parity
-export const TWITCH_ANDROID_USER_AGENT = getAndroidUserAgent();
 
 // Special games that can be earned watching ANY game — upstream DevilXD utils.Game.SPECIAL_GAME_IDS
 // Matches inventory.py {509663, 509672} (Just Chatting / IRL variants)

@@ -1,8 +1,8 @@
 import {
   TWITCH_ANDROID_CLIENT_ID,
-  TWITCH_ANDROID_USER_AGENT,
   TWITCH_OAUTH_DEVICE_URL,
-  TWITCH_OAUTH_TOKEN_URL
+  TWITCH_OAUTH_TOKEN_URL,
+  getAndroidUserAgent
 } from "../core/constants.js";
 import { request } from "undici";
 
@@ -43,7 +43,7 @@ export async function startDeviceAuth(): Promise<DeviceCodeStart> {
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
       "Client-Id": TWITCH_ANDROID_CLIENT_ID,
-      "User-Agent": TWITCH_ANDROID_USER_AGENT
+      "User-Agent": getAndroidUserAgent()
     }
   });
 
@@ -76,7 +76,7 @@ export async function pollDeviceToken(start: DeviceCodeStart): Promise<string> {
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
           "Client-Id": TWITCH_ANDROID_CLIENT_ID,
-          "User-Agent": TWITCH_ANDROID_USER_AGENT
+          "User-Agent": getAndroidUserAgent()
         }
       });
 
