@@ -36,18 +36,14 @@ function jsonMinify(obj: unknown): string {
   return JSON.stringify(obj);
 }
 
-/**
- * Build minute-watched payload and return { data: base64(json) } as sent by Twitch web.
- * Includes full upstream fields: game, game_id, client_time, is_live, minutes_logged
- */
-export function buildSpadePayload(
+function buildWatchEvents(
   broadcastId: string,
   channelId: string,
   channelLogin: string,
   userId: string,
   opts?: { gameName?: string; gameId?: string }
-): { data: string } {
-  const payload: SpadePayload[] = [
+): SpadePayload[] {
+  return [
     {
       event: "minute-watched",
       properties: {
@@ -67,6 +63,20 @@ export function buildSpadePayload(
       }
     }
   ];
+}
+
+/**
+ * Build minute-watched payload and return { data: base64(json) } as sent by Twitch web.
+ * Includes full upstream fields: game, game_id, client_time, is_live, minutes_logged
+ */
+export function buildSpadePayload(
+  broadcastId: string,
+  channelId: string,
+  channelLogin: string,
+  userId: string,
+  opts?: { gameName?: string; gameId?: string }
+): { data: string } {
+  const payload = buildWatchEvents(broadcastId, channelId, channelLogin, userId, opts);
   const data = Buffer.from(jsonMinify(payload), "utf8").toString("base64");
   return { data };
 }
@@ -82,26 +92,7 @@ export function buildSpadeGqlPayload(
   userId: string,
   opts?: { gameName?: string; gameId?: string }
 ): { query: string; encodedData: string } {
-  const watchPayload = [
-    {
-      event: "minute-watched",
-      properties: {
-        broadcast_id: broadcastId,
-        channel_id: channelId,
-        channel: channelLogin,
-        client_time: isoNow(),
-        game: opts?.gameName ?? "",
-        game_id: opts?.gameId ?? "",
-        hidden: false,
-        is_live: true,
-        live: true,
-        logged_in: true,
-        minutes_logged: 1,
-        muted: false,
-        user_id: userId
-      }
-    }
-  ];
+  const watchPayload = buildWatchEvents(broadcastId, channelId, channelLogin, userId, opts);
   const json = jsonMinify(watchPayload);
   const gz = gzipSync(Buffer.from(json, "utf8"));
   const encodedData = gz.toString("base64");
