@@ -82,6 +82,11 @@ export const GQL_OPERATIONS: Record<string, GqlOperation> = {
     operationName: "ChannelPointsContext",
     sha256Hash: "374314de591e69925fce3ddc2bcf085796f56ebb8cad67a0daa3165c03adc345",
     variables: { channelLogin: "" }
+  },
+  ClaimCommunityPoints: {
+    operationName: "ClaimCommunityPoints",
+    sha256Hash: "46aaeebe02c99afdf4fc97c7c0cba964124bf6b0af229395f1f6d1feed05b3d0",
+    variables: { input: { claimID: "", channelID: "" } }
   }
 };
 
