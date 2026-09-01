@@ -353,10 +353,9 @@ export class Miner {
             `onsite-notifications.${this.userId}`
         ];
         // Use pool-aware channel topics: up to MAX_CHANNELS channels, 1 topic per channel for now (video-playback).
-        // Optional broadcast-settings-update included via config (future). Pool handles sharding across 8 websockets.
-        const sliceCap = MAX_CHANNELS; // 199 — pool will handle 50 per socket
+        // Pool handles sharding across 8 websockets.
         const channelTopics = this.channels
-            .slice(0, Math.max(0, sliceCap))
+            .slice(0, MAX_CHANNELS)
             .map((ch) => `video-playback-by-id.${ch.id}`);
         // Register handlers for stream state changes
         for (const topic of channelTopics) {
@@ -366,7 +365,7 @@ export class Miner {
             });
         }
         // Also handle broadcast-settings-update if we ever subscribe to them
-        for (const ch of this.channels.slice(0, sliceCap)) {
+        for (const ch of this.channels.slice(0, MAX_CHANNELS)) {
             const t = `broadcast-settings-update.${ch.id}`;
             if (!this.pubsub.getSubscribedTopics().includes(t)) {
                 this.pubsub.registerTopic(t, () => {
