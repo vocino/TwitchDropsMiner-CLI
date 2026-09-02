@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { buildSpadePayload, buildSpadeGqlPayload } from "../../integrations/twitchSpade.js";
 
-const SPADE_PATTERN = /"(?:beacon|spade)_?url":\s*"(https:\/\/[.\\w\-/]+\.ts(?:\?allow_stream=true)?)"/i;
+const SPADE_PATTERN = /"spade_?url":\s*"(https:\/\/[.\w\-/]+)"/i;
 
 test("buildSpadePayload returns base64 data with minute-watched event", () => {
   const out = buildSpadePayload("12345", "67890", "streamer", "user1");
@@ -41,9 +41,9 @@ test("buildSpadeGqlPayload produces gzip b64 for mutation fallback", () => {
 });
 
 test("spade URL regex extracts URL from synthetic HTML", () => {
-  const SPADE_PATTERN = /"(?:beacon|spade)_?url":\s*"(https:\/\/[.\w\-/]+\.ts(?:\?allow_stream=true)?)"/i;
-  const html = '"beacon_url": "https://spade.example.com/v1/beacon.ts?allow_stream=true"';
+  const SPADE_PATTERN = /"spade_?url":\s*"(https:\/\/[.\w\-/]+)"/i;
+  const html = '"spade_url": "https://spade.twitch.tv/track"';
   const match = html.match(SPADE_PATTERN);
   assert.ok(match);
-  assert.equal(match[1], "https://spade.example.com/v1/beacon.ts?allow_stream=true");
+  assert.equal(match[1], "https://spade.twitch.tv/track");
 });

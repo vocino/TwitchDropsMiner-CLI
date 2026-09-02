@@ -1,7 +1,7 @@
 import { request } from "undici";
 import { gzipSync } from "node:zlib";
 import { TWITCH_ANDROID_CLIENT_ID, getAndroidUserAgent } from "../core/constants.js";
-const SPADE_PATTERN = /"(?:beacon|spade)_?url":\s*"(https:\/\/[.\w\-/]+\.ts(?:\?allow_stream=true)?)"/i;
+const SPADE_PATTERN = /"spade_?url":\s*"(https:\/\/[.\w\-/]+)"/i;
 const SETTINGS_PATTERN = /src="(https:\/\/[\w.]+\/config\/settings\.[0-9a-f]{32}\.js)"/i;
 const DEFAULT_SPADE_BASE = "https://spade.twitch.tv";
 const CHANNEL_PAGE_BASE = "https://www.twitch.tv";
@@ -56,7 +56,7 @@ export function buildSpadeGqlPayload(broadcastId, channelId, channelLogin, userI
     return { query, encodedData };
 }
 /**
- * Resolve spade/beacon URL from channel page (or settings JS). Caches nothing; caller may cache.
+ * Resolve spade URL from channel page (or settings JS). Caches nothing; caller may cache.
  */
 export async function getSpadeUrl(channelLogin, accessToken) {
     const url = `${CHANNEL_PAGE_BASE}/${channelLogin}`;
