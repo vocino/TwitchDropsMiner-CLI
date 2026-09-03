@@ -2,6 +2,7 @@ import { request } from "undici";
 import { gzipSync } from "node:zlib";
 import { Channel } from "../domain/channel.js";
 import { TWITCH_ANDROID_CLIENT_ID, getAndroidUserAgent } from "../core/constants.js";
+import { GQL_OPERATIONS } from "./gqlOperations.js";
 
 const SPADE_PATTERN = /"spade_?url":\s*"(https:\/\/[.\w\-/]+)"/i;
 const SETTINGS_PATTERN = /src="(https:\/\/[\w.]+\/config\/settings\.[0-9a-f]{32}\.js)"/i;
@@ -211,11 +212,7 @@ export async function fetchStreamIdViaGql(
 ): Promise<string | null> {
   try {
     const resp = (await gqlRequestImpl(
-      {
-        operationName: "VideoPlayerStreamInfoOverlayChannel",
-        sha256Hash: "198492e0857f6aedead9665c81c5a06d67b25b58034649687124083ff288597d",
-        variables: { channel: channelLogin }
-      },
+      GQL_OPERATIONS.GetStreamInfo,
       token,
       { channel: channelLogin }
     )) as Record<string, unknown>;
