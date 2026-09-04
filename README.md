@@ -83,7 +83,7 @@ This README stays minimal on purpose. If wiki and README disagree, wiki wins.
 ```
 src/cli/            commands (run, auth, status, config, games, doctor, service, history, metrics, drops, watch, hooks/export, calendar/optimize/simulate, rules)
 src/core/           miner, watchLoop 59s tick, channelService, stateMachine, maintenance
-src/integrations/   gqlClient, gqlOperations 11 ops, twitchPubSub pool 8*50->199, twitchSpade beacon
+src/integrations/   gqlClient, gqlOperations 12 ops, twitchPubSub pool 8*50->199, twitchSpade beacon
 src/domain/         inventory chains, channel
 src/config/         zod schema, XDG store 600
 src/state/          authStore, deviceStore, sessionState
