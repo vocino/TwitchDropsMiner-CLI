@@ -12,7 +12,7 @@ export const GQL_OPERATIONS: Record<string, GqlOperation> = {
   },
   Campaigns: {
     operationName: "ViewerDropsDashboard",
-    sha256Hash: "d9cae7761dafab85908c85e6683cb4201b449e66ac3bb5e894f15ff12aeafaa7",
+    sha256Hash: "c16bb890cc8ce7647a96ee69cd313d423a378a3dedadf630a1017cde18975feb",
     variables: { fetchRewardCampaigns: false }
   },
   CampaignDetails: {
