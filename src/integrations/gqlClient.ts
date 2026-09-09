@@ -1,4 +1,4 @@
-import { httpJson } from "./httpClient.js";
+import { httpJson, sleep } from "./httpClient.js";
 import { TWITCH_GQL_URL, TWITCH_ANDROID_CLIENT_ID, getAndroidUserAgent } from "../core/constants.js";
 import { GqlOperation, gqlPayload, applyGqlHashOverride } from "./gqlOperations.js";
 import { loadConfig } from "../config/store.js";
@@ -51,6 +51,23 @@ export function assertNoGqlPersistedQueryFailure(operation: GqlOperation, payloa
   }
 }
 
+// Transient GQL errors Twitch returns when it aborts/cancels a request under
+// load. Retry instead of failing the poll cycle. Mirrors the upstream
+// DevilXD twitch.py backoff list (incl. "request cancelled", 825bde3).
+const TRANSIENT_GQL_MESSAGES = [
+  "service timeout",
+  "request cancelled",
+  "service unavailable",
+  "context deadline exceeded"
+];
+
+export function isTransientGqlError(payload: unknown): boolean {
+  const rec = payload as { errors?: GqlErrorEntry[] };
+  return Boolean(
+    rec.errors?.some((e) => TRANSIENT_GQL_MESSAGES.includes((e.message ?? "").toLowerCase()))
+  );
+}
+
 export async function gqlRequest<T = unknown>(
   operation: GqlOperation,
   accessToken: string,
@@ -59,16 +76,24 @@ export async function gqlRequest<T = unknown>(
   const cfg = loadConfig();
   const resolved = applyGqlHashOverride(operation, cfg.gqlHashOverrides);
   const dHeaders = deviceHeaders();
-  const payload = await httpJson<T>("POST", TWITCH_GQL_URL, gqlPayload(resolved, variables), {
-    retries: 3,
-    proxy: cfg.proxy || undefined,
-    headers: {
-      "Client-Id": TWITCH_ANDROID_CLIENT_ID,
-      "User-Agent": getAndroidUserAgent(),
-      Authorization: `OAuth ${accessToken}`,
-      ...dHeaders
+  let lastPayload: T | undefined;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const payload = await httpJson<T>("POST", TWITCH_GQL_URL, gqlPayload(resolved, variables), {
+      retries: 3,
+      proxy: cfg.proxy || undefined,
+      headers: {
+        "Client-Id": TWITCH_ANDROID_CLIENT_ID,
+        "User-Agent": getAndroidUserAgent(),
+        Authorization: `OAuth ${accessToken}`,
+        ...dHeaders
+      }
+    });
+    assertNoGqlPersistedQueryFailure(resolved, payload as unknown);
+    if (!isTransientGqlError(payload)) {
+      return payload;
     }
-  });
-  assertNoGqlPersistedQueryFailure(resolved, payload as unknown);
-  return payload;
+    lastPayload = payload;
+    await sleep(1000 * (attempt + 1));
+  }
+  return lastPayload as T;
 }
