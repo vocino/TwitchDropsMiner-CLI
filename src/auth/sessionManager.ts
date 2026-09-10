@@ -6,6 +6,7 @@ import { parseTokenInput } from "./tokenImport.js";
 interface ValidateResponse {
   client_id: string;
   user_id: string;
+  login: string;
 }
 
 export class SessionManager {

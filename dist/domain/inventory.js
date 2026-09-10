@@ -355,7 +355,10 @@ export function buildInventoryFromGqlResponses(inventoryResponse, campaignsRespo
         }
         const id = String(c.id);
         if (!inventoryData[id]) {
-            inventoryData[id] = c;
+            // Details (when fetched) carry timeBasedDrops + allow ACL that the dashboard
+            // payload lacks; spread last so they win over the thinner campaign record.
+            const detail = ctx.campaignDetails?.[id];
+            inventoryData[id] = detail ? { ...c, ...detail } : c;
         }
     }
     const campaigns = [];

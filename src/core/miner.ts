@@ -10,6 +10,8 @@ import { sendChannelWatch } from "../integrations/twitchSpade.js";
 import { saveSessionState } from "../state/sessionState.js";
 import { logger } from "./runtime.js";
 import { buildInventoryFromGqlResponses, DropsCampaign, TimedDrop } from "../domain/inventory.js";
+import type { Json } from "../domain/inventory.js";
+import { fetchCampaignDetails, selectPriorityCampaignIds } from "./campaignDetails.js";
 import { loadConfig } from "../config/store.js";
 import { TwitchPubSub } from "../integrations/twitchPubSub.js";
 import { MAX_CHANNELS } from "./constants.js";
@@ -29,6 +31,7 @@ export class Miner {
   private channels: Channel[] = [];
   private watchingChannel: Channel | null = null;
   private userId: string | null = null;
+  private userLogin: string | null = null;
   private lastInventoryFetchMs: number = 0;
   private readonly spadeUrlCache = new Map<string, string>();
   private pubsub: TwitchPubSub | null = null;
@@ -55,6 +58,7 @@ export class Miner {
 
     const validation = await session.validateAccessToken(token);
     this.userId = validation.user_id;
+    this.userLogin = validation.login ?? null;
     logger.info("Auth validated. Starting miner.");
 
     // Wire drop status providers for /drops and /status endpoints (Glance)
@@ -465,10 +469,35 @@ export class Miner {
       token
     );
     const cfg = this.config ?? loadConfig();
+
+    // Campaigns we have no inventory progress on arrive without timeBasedDrops, which
+    // makes canEarnWithin false and hides them from priority sorting entirely. Backfill
+    // drops for priority games so they can actually be selected.
+    let campaignDetails: Record<string, Json> | undefined;
+    if (this.userLogin) {
+      const detailIds = selectPriorityCampaignIds(
+        (campaignsResponse as unknown) as Json,
+        cfg.priority,
+        cfg.exclude
+      );
+      if (detailIds.length > 0) {
+        campaignDetails = await fetchCampaignDetails({
+          token,
+          channelLogin: this.userLogin,
+          campaignIds: detailIds,
+          concurrency: cfg.channelFetchConcurrency
+        });
+        logger.info(
+          { requested: detailIds.length, populated: Object.keys(campaignDetails).length },
+          "Backfilled campaign details for priority games"
+        );
+      }
+    }
+
     const built = buildInventoryFromGqlResponses(
       (inventoryResponse as unknown) as Record<string, unknown>,
       (campaignsResponse as unknown) as Record<string, unknown>,
-      { enableBadgesEmotes: cfg.enableBadgesEmotes }
+      { enableBadgesEmotes: cfg.enableBadgesEmotes, campaignDetails }
     );
     this.campaigns = built.campaigns;
     this.timeTriggers = built.timeTriggers;

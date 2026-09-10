@@ -404,6 +404,12 @@ export interface BuiltInventory {
 
 export interface InventoryBuildContext {
   enableBadgesEmotes: boolean;
+  /**
+   * Optional `DropCampaignDetails` payloads keyed by campaign id. The dashboard
+   * Campaigns query omits `timeBasedDrops`, so campaigns sourced from it have no drops
+   * and fail `canEarnWithin`. Merging details in restores them.
+   */
+  campaignDetails?: Record<string, Json>;
 }
 
 export function buildInventoryFromGqlResponses(
@@ -443,7 +449,10 @@ export function buildInventoryFromGqlResponses(
     }
     const id = String(c.id);
     if (!inventoryData[id]) {
-      inventoryData[id] = c;
+      // Details (when fetched) carry timeBasedDrops + allow ACL that the dashboard
+      // payload lacks; spread last so they win over the thinner campaign record.
+      const detail = ctx.campaignDetails?.[id];
+      inventoryData[id] = detail ? { ...c, ...detail } : c;
     }
   }
 

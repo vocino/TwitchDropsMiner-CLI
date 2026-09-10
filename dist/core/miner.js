@@ -10,6 +10,7 @@ import { sendChannelWatch } from "../integrations/twitchSpade.js";
 import { saveSessionState } from "../state/sessionState.js";
 import { logger } from "./runtime.js";
 import { buildInventoryFromGqlResponses } from "../domain/inventory.js";
+import { fetchCampaignDetails, selectPriorityCampaignIds } from "./campaignDetails.js";
 import { loadConfig } from "../config/store.js";
 import { TwitchPubSub } from "../integrations/twitchPubSub.js";
 import { MAX_CHANNELS } from "./constants.js";
@@ -28,6 +29,7 @@ export class Miner {
     channels = [];
     watchingChannel = null;
     userId = null;
+    userLogin = null;
     lastInventoryFetchMs = 0;
     spadeUrlCache = new Map();
     pubsub = null;
@@ -50,6 +52,7 @@ export class Miner {
         }
         const validation = await session.validateAccessToken(token);
         this.userId = validation.user_id;
+        this.userLogin = validation.login ?? null;
         logger.info("Auth validated. Starting miner.");
         // Wire drop status providers for /drops and /status endpoints (Glance)
         setActiveDropsProvider(() => this.getActiveDropsForApi());
@@ -428,7 +431,23 @@ export class Miner {
         const inventoryResponse = await gqlRequest(GQL_OPERATIONS.Inventory, token);
         const campaignsResponse = await gqlRequest(GQL_OPERATIONS.Campaigns, token);
         const cfg = this.config ?? loadConfig();
-        const built = buildInventoryFromGqlResponses(inventoryResponse, campaignsResponse, { enableBadgesEmotes: cfg.enableBadgesEmotes });
+        // Campaigns we have no inventory progress on arrive without timeBasedDrops, which
+        // makes canEarnWithin false and hides them from priority sorting entirely. Backfill
+        // drops for priority games so they can actually be selected.
+        let campaignDetails;
+        if (this.userLogin) {
+            const detailIds = selectPriorityCampaignIds(campaignsResponse, cfg.priority, cfg.exclude);
+            if (detailIds.length > 0) {
+                campaignDetails = await fetchCampaignDetails({
+                    token,
+                    channelLogin: this.userLogin,
+                    campaignIds: detailIds,
+                    concurrency: cfg.channelFetchConcurrency
+                });
+                logger.info({ requested: detailIds.length, populated: Object.keys(campaignDetails).length }, "Backfilled campaign details for priority games");
+            }
+        }
+        const built = buildInventoryFromGqlResponses(inventoryResponse, campaignsResponse, { enableBadgesEmotes: cfg.enableBadgesEmotes, campaignDetails });
         this.campaigns = built.campaigns;
         this.timeTriggers = built.timeTriggers;
         metricsRegistry.incInventoryFetch();
