@@ -1,6 +1,6 @@
 import { request, ProxyAgent } from "undici";
 const DEFAULT_TIMEOUT_MS = 30_000;
-function sleep(ms) {
+export function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 function jitterMs(base) {
