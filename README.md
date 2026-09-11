@@ -104,4 +104,6 @@ Wiki lives in its own git: `https://github.com/vocino/TwitchDropsMiner-CLI.wiki.
 
 Original idea from [DevilXD/TwitchDropsMiner](https://github.com/DevilXD/TwitchDropsMiner). This is an independent TypeScript rewrite for headless server use — different codebase, same Drop-mining concept.
 
+If the miner earns its keep, you can [sponsor the project](https://github.com/sponsors/vocino).
+
 License MIT.
