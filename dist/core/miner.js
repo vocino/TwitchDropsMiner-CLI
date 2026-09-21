@@ -137,7 +137,7 @@ export class Miner {
             });
             if (pastTriggers.length > 0) {
                 logger.info("Maintenance: campaign time trigger");
-                this.state.setState("CHANNELS_CLEANUP");
+                this.state.requestState("CHANNELS_CLEANUP");
             }
         });
         this.attachSignalHandlers();
@@ -340,7 +340,7 @@ export class Miner {
                         logger.info({ instanceId }, "Drop claimed from PubSub");
                     }
                 }
-                this.state.setState("CHANNELS_CLEANUP");
+                this.state.requestState("CHANNELS_CLEANUP");
             }
         });
         this.pubsub.registerTopic(notificationsTopic, () => {
@@ -364,7 +364,7 @@ export class Miner {
         for (const topic of channelTopics) {
             this.pubsub.registerTopic(topic, () => {
                 logger.debug("Stream state update, requesting channels cleanup");
-                this.state.setState("CHANNELS_CLEANUP");
+                this.state.requestState("CHANNELS_CLEANUP");
             });
         }
         // Also handle broadcast-settings-update if we ever subscribe to them
@@ -373,7 +373,7 @@ export class Miner {
             if (!this.pubsub.getSubscribedTopics().includes(t)) {
                 this.pubsub.registerTopic(t, () => {
                     logger.debug({ channelId: ch.id }, "Broadcast settings update, requesting channels cleanup");
-                    this.state.setState("CHANNELS_CLEANUP");
+                    this.state.requestState("CHANNELS_CLEANUP");
                 });
             }
         }
