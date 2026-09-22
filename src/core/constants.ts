@@ -15,6 +15,10 @@ export const MAX_TOPICS = MAX_WEBSOCKETS * WS_TOPICS_LIMIT - BASE_PUBSUB_TOPICS;
 export const MAX_CHANNELS = Math.floor(MAX_TOPICS / TOPICS_PER_CHANNEL);
 
 export const TWITCH_ANDROID_CLIENT_ID = "kd1unb4b3q4t58fwlpcbzcbnm76a8fp";
+// Device-code flow client: upstream DevilXD ClientType.MOBILE_WEB. The ANDROID_APP
+// (and WEB) IDs are rejected by id.twitch.tv/oauth2/device with 400 "invalid client"
+// as of 2026-09-22, while this one still issues device codes. Verified live.
+export const TWITCH_DEVICE_FLOW_CLIENT_ID = "r8s4dac0uhzifbpu9sjdiwzctle17ff";
 // Upstream DevilXD ClientType.ANDROID_APP rotates 7 device UAs via random.choice — match full list
 export const TWITCH_ANDROID_USER_AGENTS = [
   "Dalvik/2.1.0 (Linux; U; Android 16; SM-S911B Build/TP1A.220624.014) tv.twitch.android.app/25.3.0/2503006",
