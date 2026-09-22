@@ -5,6 +5,8 @@ import os from "node:os";
 export interface AuthState {
   accessToken?: string;
   cookiesHeader?: string;
+  /** Client ID the access token was issued for (from /oauth2/validate). */
+  tokenClientId?: string;
   updatedAt: string;
 }
 
@@ -35,11 +37,12 @@ export function loadAuthState(): AuthState | null {
   }
 }
 
-export function saveAuthState(state: AuthState): void {
+export function saveAuthState(state: Omit<AuthState, "updatedAt"> & { updatedAt?: string }): void {
   const file = getAuthFilePath();
   const payload: AuthState = {
     accessToken: state.accessToken,
     cookiesHeader: state.cookiesHeader,
+    tokenClientId: state.tokenClientId,
     updatedAt: new Date().toISOString()
   };
   const json = JSON.stringify(payload, null, 2);

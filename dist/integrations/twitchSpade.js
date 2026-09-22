@@ -1,6 +1,7 @@
 import { request } from "undici";
 import { gzipSync } from "node:zlib";
-import { TWITCH_ANDROID_CLIENT_ID, getAndroidUserAgent } from "../core/constants.js";
+import { getAndroidUserAgent } from "../core/constants.js";
+import { getApiClientId } from "../auth/sessionManager.js";
 import { GQL_OPERATIONS } from "./gqlOperations.js";
 const SPADE_PATTERN = /"spade_?url":\s*"(https:\/\/[.\w\-/]+)"/i;
 const SETTINGS_PATTERN = /src="(https:\/\/[\w.]+\/config\/settings\.[0-9a-f]{32}\.js)"/i;
@@ -64,7 +65,7 @@ export async function getSpadeUrl(channelLogin, accessToken) {
     const res = await request(url, {
         method: "GET",
         headers: {
-            "Client-Id": TWITCH_ANDROID_CLIENT_ID,
+            "Client-Id": getApiClientId(),
             "User-Agent": getAndroidUserAgent(),
             Authorization: `OAuth ${accessToken}`
         }
@@ -82,7 +83,7 @@ export async function getSpadeUrl(channelLogin, accessToken) {
     const settingsRes = await request(settingsUrl, {
         method: "GET",
         headers: {
-            "Client-Id": TWITCH_ANDROID_CLIENT_ID,
+            "Client-Id": getApiClientId(),
             "User-Agent": getAndroidUserAgent(),
             Authorization: `OAuth ${accessToken}`
         }
@@ -104,7 +105,7 @@ export async function sendSpadePost(spadeUrl, payload, accessToken) {
         method: "POST",
         headers: {
             "Content-Type": "application/x-www-form-urlencoded",
-            "Client-Id": TWITCH_ANDROID_CLIENT_ID,
+            "Client-Id": getApiClientId(),
             "User-Agent": getAndroidUserAgent(),
             Authorization: `OAuth ${accessToken}`
         },

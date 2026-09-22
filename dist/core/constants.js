@@ -17,6 +17,10 @@ export const TWITCH_ANDROID_CLIENT_ID = "kd1unb4b3q4t58fwlpcbzcbnm76a8fp";
 // (and WEB) IDs are rejected by id.twitch.tv/oauth2/device with 400 "invalid client"
 // as of 2026-09-22, while this one still issues device codes. Verified live.
 export const TWITCH_DEVICE_FLOW_CLIENT_ID = "r8s4dac0uhzifbpu9sjdiwzctle17ff";
+// First-party web client (upstream DevilXD ClientType.WEB): the client ID a
+// browser-session token is bound to. Twitch GQL enforces token<->client binding,
+// so API calls must present the ID the token was issued for, not a fixed one.
+export const TWITCH_WEB_CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko";
 // Upstream DevilXD ClientType.ANDROID_APP rotates 7 device UAs via random.choice — match full list
 export const TWITCH_ANDROID_USER_AGENTS = [
     "Dalvik/2.1.0 (Linux; U; Android 16; SM-S911B Build/TP1A.220624.014) tv.twitch.android.app/25.3.0/2503006",

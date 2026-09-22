@@ -31,6 +31,7 @@ export function saveAuthState(state) {
     const payload = {
         accessToken: state.accessToken,
         cookiesHeader: state.cookiesHeader,
+        tokenClientId: state.tokenClientId,
         updatedAt: new Date().toISOString()
     };
     const json = JSON.stringify(payload, null, 2);

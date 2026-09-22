@@ -4,6 +4,7 @@ import fs from "node:fs";
 import { parseTokenInput } from "../../auth/tokenImport.js";
 import { normalizeCookieHeader } from "../../auth/cookieImport.js";
 import { loadAuthState, saveAuthState } from "../../state/authStore.js";
+import { SessionManager } from "../../auth/sessionManager.js";
 import { validateAuthLocally, validateAuthRemote } from "../../auth/validate.js";
 import { startDeviceAuth, pollDeviceToken } from "../../auth/deviceAuth.js";
 
@@ -32,6 +33,15 @@ const loginCommand = new Command("login")
       ...prev,
       accessToken
     });
+    try {
+      const validation = await new SessionManager().validateAccessToken(accessToken);
+      if (validation.client_id) {
+        const cur = loadAuthState();
+        saveAuthState({ accessToken, tokenClientId: validation.client_id, cookiesHeader: cur?.cookiesHeader });
+      }
+    } catch {
+      // binding resolves on next miner start; login still succeeded
+    }
     // eslint-disable-next-line no-console
     console.log("Device authentication completed and token stored.");
   });
@@ -59,6 +69,21 @@ const importTokenCommand = new Command("import")
         ...prev,
         accessToken: imported.accessToken
       });
+      try {
+        const validation = await new SessionManager().validateAccessToken(imported.accessToken);
+        if (validation.client_id) {
+          const cur = loadAuthState();
+          saveAuthState({
+            accessToken: imported.accessToken,
+            tokenClientId: validation.client_id,
+            cookiesHeader: cur?.cookiesHeader
+          });
+          // eslint-disable-next-line no-console
+          console.log(`Token bound to client ${validation.client_id}.`);
+        }
+      } catch {
+        // binding resolves on next miner start; import still succeeded
+      }
       // eslint-disable-next-line no-console
       console.log("Token imported successfully.");
     } catch (err) {

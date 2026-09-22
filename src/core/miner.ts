@@ -2,6 +2,7 @@ import { StateMachine } from "./stateMachine.js";
 import { WatchLoop } from "./watchLoop.js";
 import { MaintenanceScheduler } from "./maintenance.js";
 import { SessionManager } from "../auth/sessionManager.js";
+import { loadAuthState, saveAuthState } from "../state/authStore.js";
 import { GQL_OPERATIONS } from "../integrations/gqlOperations.js";
 import { gqlRequest } from "../integrations/gqlClient.js";
 import { Channel, canWatchChannel, sortChannelCandidates, shouldSwitchChannel } from "../domain/channel.js";
@@ -59,6 +60,16 @@ export class Miner {
     const validation = await session.validateAccessToken(token);
     this.userId = validation.user_id;
     this.userLogin = validation.login ?? null;
+    // Record the token's bound client so API calls present the Client-Id
+    // Twitch issued the token for (token<->client binding is enforced).
+    if (validation.client_id) {
+      const prev = loadAuthState();
+      saveAuthState({
+        accessToken: token,
+        tokenClientId: validation.client_id,
+        cookiesHeader: prev?.cookiesHeader
+      });
+    }
     logger.info("Auth validated. Starting miner.");
 
     // Wire drop status providers for /drops and /status endpoints (Glance)

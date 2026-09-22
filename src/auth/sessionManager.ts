@@ -1,7 +1,22 @@
 import { loadAuthState, saveAuthState } from "../state/authStore.js";
+import type { AuthState } from "../state/authStore.js";
 import { httpJson } from "../integrations/httpClient.js";
-import { TWITCH_OAUTH_VALIDATE_URL } from "../core/constants.js";
+import { TWITCH_ANDROID_CLIENT_ID, TWITCH_OAUTH_VALIDATE_URL } from "../core/constants.js";
 import { parseTokenInput } from "./tokenImport.js";
+
+/**
+ * Client-Id header API calls must present. Twitch enforces token<->client
+ * binding, so this follows the stored binding recorded at login/import (or
+ * miner startup) and falls back to the legacy Android ID for old states.
+ */
+export function selectApiClientId(state: AuthState | null): string {
+  const bound = state?.tokenClientId?.trim();
+  return bound ? bound : TWITCH_ANDROID_CLIENT_ID;
+}
+
+export function getApiClientId(): string {
+  return selectApiClientId(loadAuthState());
+}
 
 interface ValidateResponse {
   client_id: string;

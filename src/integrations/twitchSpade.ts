@@ -1,7 +1,8 @@
 import { request } from "undici";
 import { gzipSync } from "node:zlib";
 import { Channel } from "../domain/channel.js";
-import { TWITCH_ANDROID_CLIENT_ID, getAndroidUserAgent } from "../core/constants.js";
+import { getAndroidUserAgent } from "../core/constants.js";
+import { getApiClientId } from "../auth/sessionManager.js";
 import { GQL_OPERATIONS } from "./gqlOperations.js";
 
 const SPADE_PATTERN = /"spade_?url":\s*"(https:\/\/[.\w\-/]+)"/i;
@@ -112,7 +113,7 @@ export async function getSpadeUrl(
   const res = await request(url, {
     method: "GET",
     headers: {
-      "Client-Id": TWITCH_ANDROID_CLIENT_ID,
+      "Client-Id": getApiClientId(),
       "User-Agent": getAndroidUserAgent(),
       Authorization: `OAuth ${accessToken}`
     } as Record<string, string>
@@ -131,7 +132,7 @@ export async function getSpadeUrl(
   const settingsRes = await request(settingsUrl, {
     method: "GET",
     headers: {
-      "Client-Id": TWITCH_ANDROID_CLIENT_ID,
+      "Client-Id": getApiClientId(),
       "User-Agent": getAndroidUserAgent(),
       Authorization: `OAuth ${accessToken}`
     } as Record<string, string>
@@ -158,7 +159,7 @@ export async function sendSpadePost(
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
-      "Client-Id": TWITCH_ANDROID_CLIENT_ID,
+      "Client-Id": getApiClientId(),
       "User-Agent": getAndroidUserAgent(),
       Authorization: `OAuth ${accessToken}`
     } as Record<string, string>,
