@@ -42,6 +42,26 @@ export function getChannelPriority(channel: Channel, wantedGames: string[]): num
   return aclBonus * 1e9 + gameOrder * 1e6 + (1e6 - Math.min(channel.viewers, 1e6 - 1));
 }
 
+/**
+ * Reconcile the currently watched channel against a fresh directory fetch.
+ * Directory results only contain live streams, so a watched channel missing
+ * from a non-empty fresh list went offline (or left the directory) and must
+ * be evicted — otherwise its stale viewer count keeps beating every live
+ * candidate in shouldSwitchChannel and the miner sits on a dead stream.
+ * An empty fresh list means the fetch failed or nothing is live; keep the
+ * current channel in that case to avoid flapping to null on outages.
+ */
+export function resolveWatchedChannel(
+  current: Channel | null,
+  fresh: Channel[],
+  wantedGames: string[]
+): Channel | null {
+  if (!current) return null;
+  if (!canWatchChannel(current, wantedGames)) return null;
+  if (fresh.length > 0 && !fresh.some((ch) => ch.id === current.id)) return null;
+  return current;
+}
+
 export function shouldSwitchChannel(
   current: Channel | null,
   candidate: Channel,

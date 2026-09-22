@@ -5,7 +5,7 @@ import { SessionManager } from "../auth/sessionManager.js";
 import { loadAuthState, saveAuthState } from "../state/authStore.js";
 import { GQL_OPERATIONS } from "../integrations/gqlOperations.js";
 import { gqlRequest } from "../integrations/gqlClient.js";
-import { canWatchChannel, sortChannelCandidates, shouldSwitchChannel } from "../domain/channel.js";
+import { canWatchChannel, sortChannelCandidates, shouldSwitchChannel, resolveWatchedChannel } from "../domain/channel.js";
 import { fetchChannelsForWantedGames } from "./channelService.js";
 import { sendChannelWatch } from "../integrations/twitchSpade.js";
 import { saveSessionState } from "../state/sessionState.js";
@@ -573,6 +573,13 @@ export class Miner {
         logger.info({ count: this.channels.length, wantedGames: this.wantedGames }, "Fetched channels");
     }
     switchChannel() {
+        // Evict a watched channel that vanished from the fresh live directory
+        // (went offline) so its stale viewer count can't block switching.
+        const resolved = resolveWatchedChannel(this.watchingChannel, this.channels, this.wantedGames);
+        if (resolved !== this.watchingChannel) {
+            logger.info({ prevChannel: this.watchingChannel?.login ?? null }, "Watched channel left the live directory, reselecting");
+            this.watchingChannel = resolved;
+        }
         const candidates = sortChannelCandidates(this.channels, this.wantedGames).filter((ch) => canWatchChannel(ch, this.wantedGames));
         const best = candidates[0] ?? null;
         const prev = this.watchingChannel?.login;

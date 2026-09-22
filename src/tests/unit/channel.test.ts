@@ -4,7 +4,8 @@ import {
   canWatchChannel,
   sortChannelCandidates,
   getChannelPriority,
-  shouldSwitchChannel
+  shouldSwitchChannel,
+  resolveWatchedChannel
 } from "../../domain/channel.js";
 
 test("canWatchChannel requires online, drops enabled, and wanted game", () => {
@@ -79,6 +80,39 @@ test("shouldSwitchChannel returns true when current is null or candidate has hig
   assert.equal(shouldSwitchChannel(null, high, wanted), true);
   assert.equal(shouldSwitchChannel(low, high, wanted), true);
   assert.equal(shouldSwitchChannel(high, low, wanted), false);
+});
+
+test("resolveWatchedChannel evicts watched channel missing from fresh directory", () => {
+  const wanted = ["GameA"];
+  const stale = {
+    id: "9",
+    login: "went_offline",
+    online: true,
+    viewers: 50000,
+    gameName: "GameA",
+    dropsEnabled: true
+  };
+  const live = {
+    id: "2",
+    login: "still_live",
+    online: true,
+    viewers: 100,
+    gameName: "GameA",
+    dropsEnabled: true
+  };
+  // Went offline (absent from fresh non-empty list) -> evict so miner switches.
+  assert.equal(resolveWatchedChannel(stale, [live], wanted), null);
+  // Still listed -> keep.
+  assert.equal(resolveWatchedChannel(live, [live], wanted), live);
+  // Null stays null.
+  assert.equal(resolveWatchedChannel(null, [live], wanted), null);
+  // Empty fresh list (fetch outage) -> keep, avoid flapping to null.
+  assert.equal(resolveWatchedChannel(live, [], wanted), live);
+  // Unwatchable (wrong game now) -> evict even when listed.
+  assert.equal(
+    resolveWatchedChannel({ ...live, gameName: "Other" }, [live], wanted),
+    null
+  );
 });
 
 test("channels without wanted game or dropsEnabled are filtered by canWatchChannel", () => {
