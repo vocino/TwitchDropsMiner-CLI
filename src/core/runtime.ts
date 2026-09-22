@@ -38,23 +38,62 @@ export function isMinerLockHeldByLiveProcess(): boolean {
   }
 }
 
+export function releaseMinerLock(): void {
+  const p = minerLockPath();
+  try {
+    if (lockFd !== null) {
+      fs.closeSync(lockFd);
+      lockFd = null;
+    }
+  } catch {
+    // ignore
+  }
+  try {
+    if (fs.existsSync(p)) {
+      const raw = fs.readFileSync(p, "utf8").trim();
+      if (raw === String(process.pid)) {
+        fs.unlinkSync(p);
+      }
+    }
+  } catch {
+    // ignore
+  }
+}
+
+function acquireMinerLock(): void {
+  const p = minerLockPath();
+  lockFd = fs.openSync(p, "wx", 0o600);
+  fs.writeFileSync(lockFd, String(process.pid));
+  process.on("exit", () => {
+    releaseMinerLock();
+  });
+}
+
 export function ensureSingleInstanceLock(): void {
   const p = minerLockPath();
   try {
-    lockFd = fs.openSync(p, "wx", 0o600);
-    fs.writeFileSync(lockFd, String(process.pid));
-    process.on("exit", () => {
-      try {
-        if (lockFd !== null) {
-          fs.closeSync(lockFd);
-          fs.unlinkSync(p);
-        }
-      } catch {
-        // ignore
-      }
-    });
+    acquireMinerLock();
+    return;
   } catch {
-    throw new Error("Another tdm instance appears to be running.");
+    // Fall through to stale-lock check below.
   }
+  // A lock file left behind by a dead process (unclean shutdown, reboot,
+  // SIGKILL) must not wedge every future start into a restart loop. Only
+  // treat the lock as held when its recorded PID is still alive.
+  if (!isMinerLockHeldByLiveProcess()) {
+    try {
+      fs.unlinkSync(p);
+    } catch {
+      // ignore
+    }
+    try {
+      acquireMinerLock();
+      logger.info("Removed stale tdm lock file from a previous run.");
+      return;
+    } catch {
+      // ignore — reported below
+    }
+  }
+  throw new Error("Another tdm instance appears to be running.");
 }
 

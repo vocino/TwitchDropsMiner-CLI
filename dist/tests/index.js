@@ -14,3 +14,4 @@ import "./unit/gqlOperations.test.js";
 import "./unit/deviceStore.test.js";
 import "./unit/inventorySpecial.test.js";
 import "./unit/campaignDetails.test.js";
+import "./unit/runtimeLock.test.js";
