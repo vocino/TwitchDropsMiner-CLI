@@ -7,8 +7,10 @@ const getCommand = new Command("get")
     .action(async (key) => {
     const cfg = loadConfig();
     if (!key) {
+        // Never print the OAuth secret in dumps; confirm only whether it is set.
+        const { oauthClientSecret, ...rest } = cfg;
         // eslint-disable-next-line no-console
-        console.log(JSON.stringify(cfg, null, 2));
+        console.log(JSON.stringify({ ...rest, oauthClientSecret: oauthClientSecret ? "<set>" : "" }, null, 2));
     }
     else {
         const value = cfg[key];

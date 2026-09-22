@@ -25,7 +25,13 @@ export const ConfigSchema = z.object({
     })
     .default({ onClaim: "", onProgress: "", onChannelSwitch: "", onError: "" }),
   sleepMode: z.boolean().default(true),
-  exportFormat: z.enum(["json", "csv", "prometheus"]).default("json")
+  exportFormat: z.enum(["json", "csv", "prometheus"]).default("json"),
+  // Bring-your-own Twitch app (dev.twitch.tv console). Twitch killed the shared
+  // first-party client IDs for new authorizations, so every user registers
+  // their own app and puts its credentials here. Stored in the local 600
+  // config file only — never committed (config lives outside the repo).
+  oauthClientId: z.string().default(""),
+  oauthClientSecret: z.string().default("")
 });
 
 export type Config = z.infer<typeof ConfigSchema>;

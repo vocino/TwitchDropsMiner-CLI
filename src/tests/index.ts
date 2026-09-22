@@ -17,3 +17,4 @@ import "./unit/inventorySpecial.test.js";
 import "./unit/campaignDetails.test.js";
 import "./unit/runtimeLock.test.js";
 import "./unit/apiClientId.test.js";
+import "./unit/deviceFlowCreds.test.js";
